@@ -19,8 +19,8 @@ import {
 } from "../redux/slices/cartSlice";
 import { toggleWishlist } from "../redux/slices/wishlistSlice.js";
 import { store } from "../redux/store.js";
-
-const API_BASE_URL = "http://localhost:8080/api/v1";
+const API_BASE_URL =
+  "https://the-shoe-spot-backend.vercel.app/api/v1";
 const API_URL = `${API_BASE_URL}/products`;
 
 const formatPrice = (price) =>
