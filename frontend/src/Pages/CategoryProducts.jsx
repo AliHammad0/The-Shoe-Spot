@@ -2,7 +2,8 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
-const API_URL = "http://localhost:8080/api/v1";
+const API_URL =
+  "https://the-shoe-spot-backend.vercel.app/api/v1";
 
 const categories = {
   sneakers: "Sneakers",

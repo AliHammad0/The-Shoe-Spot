@@ -3,7 +3,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { FiSliders, FiX } from "react-icons/fi";
 
-const API_URL = "http://localhost:8080/api/v1/products/new?limit=36";
+const API_URL =
+  "https://the-shoe-spot-backend.vercel.app/api/v1/products/new?limit=36";
 
 const formatPrice = (price) =>
   `Rs. ${Number(price || 0).toLocaleString("en-PK")}`;

@@ -11,7 +11,8 @@ import {
 import { FiCheckCircle, FiCreditCard, FiPackage } from "react-icons/fi";
 import { clearCart } from "../redux/slices/cartSlice";
 
-const API_URL = "http://localhost:8080/api/v1";
+const API_URL =
+  "https://the-shoe-spot-backend.vercel.app/api/v1";
 
 const stripePromise = loadStripe(
   import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || ""

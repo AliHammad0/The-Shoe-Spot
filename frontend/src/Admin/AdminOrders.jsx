@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 
-const API_URL = "http://localhost:8080/api/v1";
+const API_URL =
+  "https://the-shoe-spot-backend.vercel.app/api/v1";
 
 const AdminOrders = () => {
   const [orders, setOrders] = useState([]);

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { FiUsers, FiRefreshCw, FiMail, FiCopy } from "react-icons/fi";
 
-const API_URL = "http://localhost:8080/api/v1";
+const API_URL =
+  "https://the-shoe-spot-backend.vercel.app/api/v1";
 
 const AllUsers = () => {
   const [users, setUsers] = useState([]);
