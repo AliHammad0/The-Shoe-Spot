@@ -1,3 +1,4 @@
+
 import express from "express";
 
 import {
@@ -5,7 +6,7 @@ import {
   getAllContacts,
   getContactById,
   deleteContact,
-} from "../Controller/contact.js";
+} from "../controller/contact.js";
 
 const contactRoutes = express.Router();
 
