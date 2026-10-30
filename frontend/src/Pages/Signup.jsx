@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FiEye, FiEyeOff } from "react-icons/fi";
 
-const API_URL = "http://localhost:8080/api/v1";
+const API_URL =
+  "https://the-shoe-spot-backend.vercel.app/api/v1";
 
 export default function Signup() {
   const navigate = useNavigate();

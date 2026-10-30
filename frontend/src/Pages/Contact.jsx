@@ -29,8 +29,8 @@ const categories = [
   "Sliders",
   "Sports Shoes",
 ];
-
-const API_URL = "http://localhost:8080/api/v1/contact";
+const API_URL =
+  "https://the-shoe-spot-backend.vercel.app/api/v1/contact";
 
 export default function Contact() {
   const [form, setForm] = useState(initialForm);

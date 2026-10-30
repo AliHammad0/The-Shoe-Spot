@@ -13,7 +13,8 @@ import {
   FiAlertCircle,
 } from "react-icons/fi";
 
-const API_URL = "http://localhost:8080/api/v1/products/create";
+const API_URL = "const API_URL =
+  "https://the-shoe-spot-backend.vercel.app/api/v1/products/create";
 
 const categories = [
   "Sneakers",
