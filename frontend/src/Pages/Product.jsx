@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { FiChevronDown, FiSliders } from "react-icons/fi";
 
-const API_URL = "http://localhost:8080/api/v1/products";
+const API_URL =
+  "https://the-shoe-spot-backend.vercel.app/api/v1/products";
 
 const getColorValue = (color) => {
   const colors = {
@@ -121,8 +122,8 @@ export default function Product() {
         });
 
         setProducts(
-  formattedProducts.filter((product) => !product.newArrival)
-);
+          formattedProducts.filter((product) => !product.newArrival)
+        );
       } catch (err) {
         if (err.name !== "AbortError") {
           setError(err.message || "Products load nahi ho sake.");
@@ -279,7 +280,7 @@ export default function Product() {
 
               return (
                 <article key={product.id} className="min-w-0">
-                  {/* Clicking image opens single product page */}
+                  {/* Product Image */}
                   <Link
                     to={productLink}
                     state={{
