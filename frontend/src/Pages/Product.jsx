@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { FiChevronDown, FiSliders } from "react-icons/fi";
@@ -296,7 +295,7 @@ export default function Product() {
                           src={image}
                           alt={`${product.name} ${selectedColor}`}
                           loading="lazy"
-                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                          className="h-full w-full object-contain p-2 transition-transform duration-500 group-hover:scale-[1.04] sm:p-3"
                         />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-sm text-gray-400">
