@@ -40,7 +40,7 @@
         {
           "key": "Cross-Origin-Embedder-Policy",
           "value": "unsafe-none"
-        }
+        },
         {
           "key": "Content-Security-Policy",
           "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src 'self' https://the-shoe-spot-backend.vercel.app; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
