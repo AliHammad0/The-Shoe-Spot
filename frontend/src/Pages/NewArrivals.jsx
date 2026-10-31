@@ -165,7 +165,7 @@ const NewArrivals = () => {
 
       {/* Page Heading */}
       <section className="px-5 pb-10 pt-12 text-center sm:px-8 sm:pt-16">
-        <p className="mb-3 text-xs font-medium uppercase tracking-[0.3em] text-[#8c7650]">
+        <p className="mb-3 text-xs font-medium uppercase tracking-[0.3em] text-[#6b5738]">
           The Latest Collection
         </p>
 
