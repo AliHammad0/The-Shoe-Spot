@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { FiChevronDown, FiSliders } from "react-icons/fi";
 
@@ -140,30 +140,36 @@ export default function Product() {
     return () => controller.abort();
   }, []);
 
-  const displayedProducts = [...products].sort((a, b) => {
+  const displayedProducts = useMemo(() => {
+    const sorted = [...products];
+
     switch (sortBy) {
       case "price-ascending":
-        return a.price - b.price;
+        return sorted.sort((a, b) => a.price - b.price);
 
       case "price-descending":
-        return b.price - a.price;
+        return sorted.sort((a, b) => b.price - a.price);
 
       case "alphabetical-ascending":
-        return a.name.localeCompare(b.name);
+        return sorted.sort((a, b) => a.name.localeCompare(b.name));
 
       case "alphabetical-descending":
-        return b.name.localeCompare(a.name);
+        return sorted.sort((a, b) => b.name.localeCompare(a.name));
 
       case "date-old":
-        return String(a.id).localeCompare(String(b.id));
+        return sorted.sort((a, b) =>
+          String(a.id).localeCompare(String(b.id))
+        );
 
       case "date-new":
-        return String(b.id).localeCompare(String(a.id));
+        return sorted.sort((a, b) =>
+          String(b.id).localeCompare(String(a.id))
+        );
 
       default:
-        return 0;
+        return sorted;
     }
-  });
+  }, [products, sortBy]);
 
   return (
     <main
@@ -176,9 +182,7 @@ export default function Product() {
           <Link to="/" className="hover:text-black">
             Home
           </Link>
-
           <span>/</span>
-
           <span className="text-black">All Products</span>
         </div>
       </div>
@@ -223,12 +227,8 @@ export default function Product() {
                 <option value="alphabetical-descending">
                   Alphabetically, Z-A
                 </option>
-                <option value="price-ascending">
-                  Price, low to high
-                </option>
-                <option value="price-descending">
-                  Price, high to low
-                </option>
+                <option value="price-ascending">Price, low to high</option>
+                <option value="price-descending">Price, high to low</option>
                 <option value="date-old">Date, old to new</option>
                 <option value="date-new">Date, new to old</option>
               </select>
@@ -258,7 +258,7 @@ export default function Product() {
           </p>
         ) : (
           <div className="grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-x-5 sm:gap-y-10 lg:grid-cols-4 lg:gap-x-6">
-            {displayedProducts.map((product) => {
+            {displayedProducts.map((product, index) => {
               const selectedColor =
                 selectedColors[product.id] ?? product.color;
 
@@ -295,7 +295,11 @@ export default function Product() {
                         <img
                           src={image}
                           alt={`${product.name} ${selectedColor}`}
+                          width="400"
+                          height="500"
                           loading="lazy"
+                          decoding="async"
+                          fetchPriority="low"
                           className="h-full w-full object-contain p-2 transition-transform duration-500 group-hover:scale-[1.04] sm:p-3"
                         />
                       ) : (

@@ -1,111 +1,133 @@
 
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import { Routes, Route } from "react-router-dom";
 
 import Header from "./Pages/Header";
 import Footer from "./Pages/Footer";
-import Product from "./Pages/Product";
-import BestSelling from "./Pages/BestSelling";
-import Login from "./Pages/Login";
-import Signup from "./Pages/Signup";
-import Cart from "./Pages/Cart";
-import Checkout from "./Pages/Checkout";
+
 import Hero from "./Pages/Hero";
-import Reviews from "./Pages/Reviews";
-import About from "./Pages/About";
-import ReturnExchangePolicy from "./components/ReturnExchangePolicy";
-import ShoeSizeGuide from "./components/ShoeSizeGuide";
-import ShippingPolicy from "./components/ShippingPolicy";
-import ClaimPolicy from "./components/ClaimPolicy";
-import CancellationPolicy from "./components/CancellationPolicy";
-import PaymentOptions from "./components/PaymentOptions";
-import HappyCustomer from "./components/HappyCustomer";
-import BuyNowPayLater from "./components/BuyNowPayLater";
-import FAQ from "./components/FAQ";
-import PrivacyPolicy from "./components/PrivacyPolicy";
-import StoreLocator from "./components/StoreLocator";
-import Blog from "./components/Blog";
-import ProductDetails from "./Pages/ProductDetails";
-import AdminDashboard from "./Admin/AdminDashboard";
-import ProtectedAdminRoute from "./Admin/ProtectedAdminRoute";
-import Search from "./Pages/Search";
-import Profile from "./Pages/Profile";
-import MyOrders from "./Pages/MyOrders";
-import AdminOrders from "./Admin/AdminOrders";
-import NewArrivals from "./Pages/NewArrivals";
-import WishList from "./Pages/WishList";
 import Category from "./Pages/Category";
-import Contact from "./Pages/Contact";
-import CategoryProducts from "./Pages/CategoryProducts";
+import Product from "./Pages/Product";
+import NewArrivals from "./Pages/NewArrivals";
+import BestSelling from "./Pages/BestSelling";
+import Reviews from "./Pages/Reviews";
+
+const Login = lazy(() => import("./Pages/Login"));
+const Signup = lazy(() => import("./Pages/Signup"));
+const Cart = lazy(() => import("./Pages/Cart"));
+const Checkout = lazy(() => import("./Pages/Checkout"));
+const ProductDetails = lazy(() => import("./Pages/ProductDetails"));
+const Search = lazy(() => import("./Pages/Search"));
+const Profile = lazy(() => import("./Pages/Profile"));
+const MyOrders = lazy(() => import("./Pages/MyOrders"));
+const WishList = lazy(() => import("./Pages/WishList"));
+const About = lazy(() => import("./Pages/About"));
+const Contact = lazy(() => import("./Pages/Contact"));
+
+const ReturnExchangePolicy = lazy(() =>
+  import("./components/ReturnExchangePolicy")
+);
+const ShoeSizeGuide = lazy(() => import("./components/ShoeSizeGuide"));
+const ShippingPolicy = lazy(() => import("./components/ShippingPolicy"));
+const ClaimPolicy = lazy(() => import("./components/ClaimPolicy"));
+const CancellationPolicy = lazy(() =>
+  import("./components/CancellationPolicy")
+);
+const PaymentOptions = lazy(() => import("./components/PaymentOptions"));
+const HappyCustomer = lazy(() => import("./components/HappyCustomer"));
+const BuyNowPayLater = lazy(() => import("./components/BuyNowPayLater"));
+const FAQ = lazy(() => import("./components/FAQ"));
+const PrivacyPolicy = lazy(() => import("./components/PrivacyPolicy"));
+const StoreLocator = lazy(() => import("./components/StoreLocator"));
+const Blog = lazy(() => import("./components/Blog"));
+
+const AdminDashboard = lazy(() =>
+  import("./Admin/AdminDashboard")
+);
+const ProtectedAdminRoute = lazy(() =>
+  import("./Admin/ProtectedAdminRoute")
+);
+const AdminOrders = lazy(() => import("./Admin/AdminOrders"));
+const CategoryProducts = lazy(() =>
+  import("./Pages/CategoryProducts")
+);
+
+const PageLoader = () => (
+  <div className="min-h-[50vh] flex items-center justify-center">
+    <div className="h-8 w-8 border-2 border-black border-t-transparent rounded-full animate-spin" />
+  </div>
+);
 
 const App = () => {
   return (
     <>
       <Header />
 
-      <Routes>
-        {/* HOME */}
-        <Route
-          path="/"
-          element={
-            <>
-              <Hero />
-              <Category />
-              <Product />
-              <NewArrivals />
-              <BestSelling />
-              <Reviews />
-            </>
-          }
-        />
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          {/* HOME */}
+          <Route
+            path="/"
+            element={
+              <>
+                <Hero />
+                <Category />
+                <Product />
+                <NewArrivals />
+                <BestSelling />
+                <Reviews />
+              </>
+            }
+          />
 
-        {/* AUTH */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
+          {/* AUTH */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
 
-        {/* SHOPPING */}
-        <Route path="/cart" element={<Cart />} />
-        <Route path="/checkout" element={<Checkout />} />
-        <Route path="/products/:id" element={<ProductDetails />} />
-        <Route path="/search" element={<Search />} />
-        <Route path="/new" element={<NewArrivals />} />
-        <Route path="/wishlist" element={<WishList />} />
+          {/* SHOPPING */}
+          <Route path="/cart" element={<Cart />} />
+          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/products/:id" element={<ProductDetails />} />
+          <Route path="/search" element={<Search />} />
+          <Route path="/new" element={<NewArrivals />} />
+          <Route path="/wishlist" element={<WishList />} />
 
-        {/* CATEGORY PRODUCTS */}
-        <Route
-          path="/category/:categorySlug"
-          element={<CategoryProducts />}
-        />
+          {/* CATEGORY */}
+          <Route
+            path="/category/:categorySlug"
+            element={<CategoryProducts />}
+          />
 
-        {/* ACCOUNT */}
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/my-orders" element={<MyOrders />} />
+          {/* ACCOUNT */}
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/my-orders" element={<MyOrders />} />
 
-        {/* PAGES */}
-        <Route path="/about" element={<About />} />
-        <Route path="/contact" element={<Contact />} />
-        <Route path="/return-exchange" element={<ReturnExchangePolicy />} />
-        <Route path="/size-guide" element={<ShoeSizeGuide />} />
-        <Route path="/shipping-policy" element={<ShippingPolicy />} />
-        <Route path="/claim-policy" element={<ClaimPolicy />} />
-        <Route
-          path="/cancellation-policy"
-          element={<CancellationPolicy />}
-        />
-        <Route path="/payment-options" element={<PaymentOptions />} />
-        <Route path="/happy-customers" element={<HappyCustomer />} />
-        <Route path="/buy-now" element={<BuyNowPayLater />} />
-        <Route path="/faqs" element={<FAQ />} />
-        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-        <Route path="/store-locator" element={<StoreLocator />} />
-        <Route path="/blogs" element={<Blog />} />
+          {/* PAGES */}
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/return-exchange" element={<ReturnExchangePolicy />} />
+          <Route path="/size-guide" element={<ShoeSizeGuide />} />
+          <Route path="/shipping-policy" element={<ShippingPolicy />} />
+          <Route path="/claim-policy" element={<ClaimPolicy />} />
+          <Route
+            path="/cancellation-policy"
+            element={<CancellationPolicy />}
+          />
+          <Route path="/payment-options" element={<PaymentOptions />} />
+          <Route path="/happy-customers" element={<HappyCustomer />} />
+          <Route path="/buy-now" element={<BuyNowPayLater />} />
+          <Route path="/faqs" element={<FAQ />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/store-locator" element={<StoreLocator />} />
+          <Route path="/blogs" element={<Blog />} />
 
-        {/* ADMIN */}
-        <Route element={<ProtectedAdminRoute />}>
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/admin/orders" element={<AdminOrders />} />
-        </Route>
-      </Routes>
+          {/* ADMIN */}
+          <Route element={<ProtectedAdminRoute />}>
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin/orders" element={<AdminOrders />} />
+          </Route>
+        </Routes>
+      </Suspense>
 
       <Footer />
     </>

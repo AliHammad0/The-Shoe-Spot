@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import axios from "axios";
 import {
   FiUser,
@@ -29,6 +29,9 @@ const categories = [
   "Sliders",
   "Sports Shoes",
 ];
+
+const orderTypes = ["Single Order", "Bulk Order"];
+
 const API_URL =
   "https://the-shoe-spot-backend.vercel.app/api/v1/contact";
 
@@ -38,7 +41,7 @@ export default function Contact() {
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
 
-  const handleChange = (event) => {
+  const handleChange = useCallback((event) => {
     const { name, value } = event.target;
 
     setForm((previous) => ({
@@ -48,12 +51,24 @@ export default function Contact() {
 
     setError("");
     setSuccess("");
-  };
+  }, []);
+
+  const handleOrderType = useCallback((type) => {
+    setForm((previous) => ({
+      ...previous,
+      orderType: type,
+    }));
+
+    setError("");
+    setSuccess("");
+  }, []);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    if (!Number.isInteger(Number(form.quantity)) || Number(form.quantity) < 1) {
+    const quantity = Number(form.quantity);
+
+    if (!Number.isInteger(quantity) || quantity < 1) {
       setError("Quantity kam az kam 1 honi chahiye.");
       return;
     }
@@ -68,7 +83,7 @@ export default function Contact() {
         email: form.email,
         orderType: form.orderType,
         shoeCategory: form.category,
-        quantity: Number(form.quantity),
+        quantity,
         additionalRequirements: form.message,
       });
 
@@ -140,6 +155,7 @@ export default function Contact() {
                     value={form.name}
                     onChange={handleChange}
                     placeholder="Enter your name"
+                    autoComplete="name"
                     required
                     className="w-full border border-gray-200 bg-white py-3 pl-10 pr-3 text-sm outline-none transition focus:border-[#8c7650]"
                   />
@@ -160,6 +176,7 @@ export default function Contact() {
                     value={form.email}
                     onChange={handleChange}
                     placeholder="Enter your email"
+                    autoComplete="email"
                     required
                     className="w-full border border-gray-200 bg-white py-3 pl-10 pr-3 text-sm outline-none transition focus:border-[#8c7650]"
                   />
@@ -173,16 +190,12 @@ export default function Contact() {
               </label>
 
               <div className="grid grid-cols-2 gap-3">
-                {["Single Order", "Bulk Order"].map((type) => (
+                {orderTypes.map((type) => (
                   <button
                     key={type}
                     type="button"
-                    onClick={() =>
-                      setForm((previous) => ({
-                        ...previous,
-                        orderType: type,
-                      }))
-                    }
+                    onClick={() => handleOrderType(type)}
+                    aria-pressed={form.orderType === type}
                     className={`border px-4 py-4 text-sm transition ${
                       form.orderType === type
                         ? "border-black bg-black text-white"
@@ -267,11 +280,16 @@ export default function Contact() {
             </div>
 
             {error && (
-              <p className="text-sm text-red-600">{error}</p>
+              <p role="alert" className="text-sm text-red-600">
+                {error}
+              </p>
             )}
 
             {success && (
-              <p className="flex items-center gap-2 text-sm text-green-700">
+              <p
+                role="status"
+                className="flex items-center gap-2 text-sm text-green-700"
+              >
                 <FiCheckCircle />
                 {success}
               </p>

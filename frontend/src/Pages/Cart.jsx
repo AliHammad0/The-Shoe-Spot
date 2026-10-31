@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -20,6 +20,43 @@ import getCartId from "../utils/cartId";
 
 const API_URL =
   "https://the-shoe-spot-backend.vercel.app/api/v1";
+
+const getItemId = (item) =>
+  String(
+    item._id ||
+      item.productId ||
+      item.id ||
+      item.product?._id ||
+      ""
+  );
+
+const getQuantity = (item) => Number(item.quantity || 1);
+
+const getPrice = (item) =>
+  Number(
+    item.specialPrice ??
+      item.price ??
+      item.product?.specialPrice ??
+      item.product?.price ??
+      0
+  );
+
+const getStock = (item) =>
+  Number(
+    item.stock ??
+      item.quantityAvailable ??
+      item.product?.stock ??
+      0
+  );
+
+const getVariant = (item) => ({
+  productId: getItemId(item),
+  size: item.size || item.selectedSize || "",
+  color: item.color || item.selectedColor || "",
+});
+
+const formatPrice = (amount) =>
+  `Rs. ${amount.toLocaleString("en-PK")}`;
 
 const Cart = ({ isOpen, onClose }) => {
   const dispatch = useDispatch();
@@ -49,54 +86,19 @@ const Cart = ({ isOpen, onClose }) => {
     };
   }, [isOpen, onClose]);
 
-  const getItemId = (item) =>
-    String(
-      item._id ||
-        item.productId ||
-        item.id ||
-        item.product?._id ||
-        ""
+  const { subtotal, totalItems } = useMemo(() => {
+    return cartItems.reduce(
+      (result, item) => {
+        const quantity = getQuantity(item);
+
+        result.subtotal += getPrice(item) * quantity;
+        result.totalItems += quantity;
+
+        return result;
+      },
+      { subtotal: 0, totalItems: 0 }
     );
-
-  const getQuantity = (item) =>
-    Number(item.quantity || 1);
-
-  const getPrice = (item) =>
-    Number(
-      item.specialPrice ??
-        item.price ??
-        item.product?.specialPrice ??
-        item.product?.price ??
-        0
-    );
-
-  const getStock = (item) =>
-    Number(
-      item.stock ??
-        item.quantityAvailable ??
-        item.product?.stock ??
-        0
-    );
-
-  const getVariant = (item) => ({
-    productId: getItemId(item),
-    size: item.size || item.selectedSize || "",
-    color: item.color || item.selectedColor || "",
-  });
-
-  const subtotal = cartItems.reduce(
-    (sum, item) =>
-      sum + getPrice(item) * getQuantity(item),
-    0
-  );
-
-  const totalItems = cartItems.reduce(
-    (sum, item) => sum + getQuantity(item),
-    0
-  );
-
-  const formatPrice = (amount) =>
-    `Rs. ${amount.toLocaleString("en-PK")}`;
+  }, [cartItems]);
 
   const setItemBusy = (key, value) => {
     setBusyItems((previous) => ({
@@ -137,19 +139,17 @@ const Cart = ({ isOpen, onClose }) => {
     const variant = getVariant(item);
     const key = `${variant.productId}-${variant.size}-${variant.color}`;
 
-    if (!variant.productId || busyItems[key]) return;
+    if (!variant.productId || busyItems[key] || clearing) return;
 
     setActionError("");
     setItemBusy(key, true);
 
     try {
-      // Pehle backend mein extra stock reserve hoga.
       await reservationRequest("reserve", {
         ...variant,
         quantity: getQuantity(item) + 1,
       });
 
-      // Backend success ke baad Redux cart update hoga.
       dispatch(
         increaseQuantity({
           id: variant.productId,
@@ -172,7 +172,8 @@ const Cart = ({ isOpen, onClose }) => {
     if (
       !variant.productId ||
       quantity <= 1 ||
-      busyItems[key]
+      busyItems[key] ||
+      clearing
     ) {
       return;
     }
@@ -181,7 +182,6 @@ const Cart = ({ isOpen, onClose }) => {
     setItemBusy(key, true);
 
     try {
-      // Quantity kam hone par extra reserved stock release hoga.
       await reservationRequest("reserve", {
         ...variant,
         quantity: quantity - 1,
@@ -205,7 +205,7 @@ const Cart = ({ isOpen, onClose }) => {
     const variant = getVariant(item);
     const key = `${variant.productId}-${variant.size}-${variant.color}`;
 
-    if (!variant.productId || busyItems[key]) return;
+    if (!variant.productId || busyItems[key] || clearing) return;
 
     setActionError("");
     setItemBusy(key, true);
@@ -222,7 +222,7 @@ const Cart = ({ isOpen, onClose }) => {
   };
 
   const handleClearCart = async () => {
-    if (clearing) return;
+    if (clearing || Object.values(busyItems).some(Boolean)) return;
 
     setActionError("");
     setClearing(true);
@@ -317,12 +317,16 @@ const Cart = ({ isOpen, onClose }) => {
 
                 return (
                   <div
-                    key={`${itemId}-${item.size ?? ""}-${item.color ?? ""}`}
+                    key={`${itemId}-${variant.size}-${variant.color}`}
                     className="flex gap-4 py-5"
                   >
                     <img
                       src={image}
                       alt={item.title || item.name || "Shoe"}
+                      width="96"
+                      height="128"
+                      loading="lazy"
+                      decoding="async"
                       className="h-32 w-24 shrink-0 bg-gray-100 object-cover"
                     />
 
@@ -458,7 +462,9 @@ const Cart = ({ isOpen, onClose }) => {
             <button
               type="button"
               onClick={handleClearCart}
-              disabled={clearing}
+              disabled={
+                clearing || Object.values(busyItems).some(Boolean)
+              }
               className="mt-4 w-full text-center text-sm text-red-600 underline underline-offset-4 hover:text-red-800 disabled:opacity-50"
             >
               {clearing ? "Clearing cart..." : "Clear Cart"}

@@ -5,18 +5,18 @@ const slides = [
   {
     id: 1,
     desktopImage:
-      "https://www.urbansole.com.pk/cdn/shop/files/Premium_product_photography_of_a_202606120233.jpg?v=1781213634&width=600",
+      "https://www.urbansole.com.pk/cdn/shop/files/Premium_product_photography_of_a_202606120233.jpg?v=1781213634&width=1200",
     mobileImage:
-      "https://www.urbansole.com.pk/cdn/shop/files/Premium_product_photography_of_a_202606120223_1.jpg?v=1781213053&width=600",
+      "https://www.urbansole.com.pk/cdn/shop/files/Premium_product_photography_of_a_202606120223_1.jpg?v=1781213053&width=800",
     alt: "The Shoe Spot collection",
     link: "/shop",
   },
   {
     id: 2,
     desktopImage:
-      "https://www.urbansole.com.pk/cdn/shop/files/Premium_product_photography_of_a_202606120233.jpg?v=1781213634&width=600",
+      "https://www.urbansole.com.pk/cdn/shop/files/Premium_product_photography_of_a_202606120233.jpg?v=1781213634&width=1200",
     mobileImage:
-      "https://www.urbansole.com.pk/cdn/shop/files/Premium_product_photography_of_a_202606120233.jpg?v=1781213634&width=600",
+      "https://www.urbansole.com.pk/cdn/shop/files/Premium_product_photography_of_a_202606120233.jpg?v=1781213634&width=800",
     alt: "Explore the latest collection",
     link: "/shop",
   },
@@ -58,16 +58,17 @@ export default function Hero() {
   return (
     <section className="relative w-full overflow-hidden bg-white">
       {/* Desktop Hero */}
-      <picture className="hidden md:block">
+      <picture className="hidden w-full md:block">
         <img
           src={slides[0].desktopImage}
           alt={slides[0].alt}
-          width="600"
-          height="400"
+          width="1200"
+          height="800"
+          sizes="100vw"
           fetchPriority="high"
           loading="eager"
           decoding="async"
-          className="block h-auto max-h-[850px] w-full object-cover"
+          className="block aspect-[3/2] h-auto max-h-[850px] w-full object-cover"
         />
       </picture>
 
@@ -93,13 +94,14 @@ export default function Hero() {
               <img
                 src={slide.mobileImage}
                 alt={slide.alt}
-                width="600"
-                height="400"
+                width="800"
+                height="533"
+                sizes="100vw"
                 loading={index === 0 ? "eager" : "lazy"}
                 fetchPriority={index === 0 ? "high" : "low"}
                 decoding="async"
                 draggable="false"
-                className="block h-auto w-full select-none object-cover"
+                className="block aspect-[3/2] h-auto w-full select-none object-cover"
               />
             </a>
           ))}

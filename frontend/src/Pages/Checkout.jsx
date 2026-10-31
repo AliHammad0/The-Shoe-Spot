@@ -1,5 +1,5 @@
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { loadStripe } from "@stripe/stripe-js";
 import {
@@ -233,7 +233,6 @@ const Checkout = () => {
   const dispatch = useDispatch();
   const formRef = useRef(null);
 
-  // Same cart ID reservations aur checkout dono use karenge.
   const cartId = useMemo(() => getCartId(), []);
 
   const cartItems = useSelector(
@@ -334,7 +333,6 @@ const Checkout = () => {
     return true;
   };
 
-  // Guest aur logged-in customer dono order place kar sakte hain.
   const createOrder = async (method, paymentIntentId = "") => {
     const orderItems = items.map((item) => ({
       productId: item.productId,
@@ -348,21 +346,16 @@ const Checkout = () => {
 
     const orderPayload = {
       cartId,
-
       customerName: form.customerName.trim(),
       email: form.email.trim(),
       phone: form.phone.trim(),
       address: form.address.trim(),
       city: form.city.trim(),
-
       items: orderItems,
-
       subtotal,
       shipping,
       total,
-
       paymentMethod: method,
-
       ...(paymentIntentId ? { paymentIntentId } : {}),
     };
 
@@ -392,7 +385,6 @@ const Checkout = () => {
     dispatch(clearCart());
   };
 
-  // Stripe PaymentIntent
   useEffect(() => {
     if (
       paymentMethod !== "Stripe" ||
@@ -504,7 +496,6 @@ const Checkout = () => {
     }
   };
 
-  // Order confirmation
   if (placedOrder) {
     const confirmationTotal =
       placedOrderTotal !== null ? placedOrderTotal : total;
@@ -559,7 +550,6 @@ const Checkout = () => {
     );
   }
 
-  // Empty cart
   if (!cartItems.length) {
     return (
       <main className="flex min-h-[60vh] items-center justify-center bg-[#faf9f6] px-4">
@@ -829,7 +819,6 @@ const Checkout = () => {
             )}
           </form>
 
-          {/* Order Summary */}
           <aside className="h-fit rounded-2xl bg-white p-5 shadow-sm sm:p-7">
             <h2 className="mb-5 text-xl font-bold text-stone-900">
               Order Summary
@@ -845,10 +834,14 @@ const Checkout = () => {
                     <img
                       src={item.image}
                       alt={item.title}
-                      className="h-20 w-20 rounded-lg bg-stone-100 object-contain"
+                      width="80"
+                      height="80"
+                      loading="lazy"
+                      decoding="async"
+                      className="h-20 w-20 shrink-0 rounded-lg bg-stone-100 object-contain"
                     />
                   ) : (
-                    <div className="flex h-20 w-20 items-center justify-center rounded-lg bg-stone-100">
+                    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-stone-100">
                       <FiPackage className="text-2xl text-stone-400" />
                     </div>
                   )}

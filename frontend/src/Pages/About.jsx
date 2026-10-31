@@ -42,6 +42,11 @@ const storyImages = [
   },
 ];
 
+const imageLoadingProps = {
+  loading: "lazy",
+  decoding: "async",
+};
+
 export default function About() {
   return (
     <main
@@ -82,7 +87,10 @@ export default function About() {
           <img
             src="https://seeandwears.com/cdn/shop/files/Gemini_Generated_Image_dq4jvjdq4jvjdq4j_1200x.png?v=1784187968"
             alt="Sneakers for modern everyday style"
+            width="1200"
+            height="800"
             fetchPriority="high"
+            decoding="async"
             className="absolute inset-0 h-full w-full object-cover"
           />
 
@@ -138,7 +146,9 @@ export default function About() {
               <img
                 src={storyImages[0].src}
                 alt={storyImages[0].alt}
-                loading="lazy"
+                width="480"
+                height="600"
+                {...imageLoadingProps}
                 className="aspect-[4/5] h-full w-full object-cover transition-transform duration-700 hover:scale-[1.04]"
               />
             </div>
@@ -147,9 +157,12 @@ export default function About() {
               <img
                 src={storyImages[1].src}
                 alt={storyImages[1].alt}
-                loading="lazy"
+                width="400"
+                height="533"
+                {...imageLoadingProps}
                 className="aspect-[3/4] h-full w-full object-cover transition-transform duration-700 hover:scale-[1.04]"
               />
+
               <p className="bg-[#f5f4f0] px-3 py-4 text-xs leading-5 text-[#65635f] sm:px-5 sm:py-6">
                 Thoughtful styles for the way you move.
               </p>
@@ -192,6 +205,7 @@ export default function About() {
                     <span className="text-[10px] font-semibold tracking-[2px] text-[#77746e]">
                       {value.number}
                     </span>
+
                     <Icon size={21} strokeWidth={1.4} />
                   </div>
 
@@ -216,7 +230,9 @@ export default function About() {
             <img
               src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQlHuCDlz_WJvRTECR20mPV8P88ezngL47mYZL3QgOZtg&s=10"
               alt="Sport-inspired footwear"
-              loading="lazy"
+              width="800"
+              height="640"
+              {...imageLoadingProps}
               className="aspect-[5/4] h-full w-full object-cover transition-transform duration-700 hover:scale-[1.03]"
             />
           </div>
@@ -283,6 +299,7 @@ export default function About() {
         <div className="mx-auto grid max-w-7xl gap-7 sm:grid-cols-2 lg:grid-cols-3">
           <div className="flex items-center gap-4">
             <FiTruck size={21} strokeWidth={1.4} />
+
             <div>
               <p className="text-xs font-medium">Delivery information</p>
               <p className="mt-1 text-xs text-[#77746e]">
@@ -293,6 +310,7 @@ export default function About() {
 
           <div className="flex items-center gap-4">
             <FiShield size={21} strokeWidth={1.4} />
+
             <div>
               <p className="text-xs font-medium">Shop with confidence</p>
               <p className="mt-1 text-xs text-[#77746e]">
@@ -303,6 +321,7 @@ export default function About() {
 
           <div className="flex items-center gap-4">
             <FiHeart size={21} strokeWidth={1.4} />
+
             <div>
               <p className="text-xs font-medium">Your style, your choice</p>
               <p className="mt-1 text-xs text-[#77746e]">

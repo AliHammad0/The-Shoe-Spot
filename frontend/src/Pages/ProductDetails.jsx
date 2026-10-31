@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -20,6 +20,7 @@ import {
 import { toggleWishlist } from "../redux/slices/wishlistSlice.js";
 import { store } from "../redux/store.js";
 import { getCartId } from "../utils/cartId";
+
 const API_BASE_URL =
   "https://the-shoe-spot-backend.vercel.app/api/v1";
 const API_URL = `${API_BASE_URL}/products`;
@@ -70,35 +71,35 @@ const normalizeProduct = (item) => {
 
   const colors = Array.isArray(item.colors)
     ? item.colors.map((color) => {
-      const isString = typeof color === "string";
-      const name = isString
-        ? color
-        : color.name || color.color || "Default";
+        const isString = typeof color === "string";
+        const name = isString
+          ? color
+          : color.name || color.color || "Default";
 
-      const variantImages = isString
-        ? []
-        : [
-          ...normalizeImages(color.images),
-          ...(typeof color.image === "string"
-            ? [color.image]
-            : []),
-          ...(typeof color.image === "object" && color.image?.url
-            ? [color.image.url]
-            : []),
-        ].filter(
-          (image, index, array) =>
-            array.indexOf(image) === index
-        );
+        const variantImages = isString
+          ? []
+          : [
+              ...normalizeImages(color.images),
+              ...(typeof color.image === "string"
+                ? [color.image]
+                : []),
+              ...(typeof color.image === "object" && color.image?.url
+                ? [color.image.url]
+                : []),
+            ].filter(
+              (image, index, array) =>
+                array.indexOf(image) === index
+            );
 
-      return {
-        name,
-        value: isString
-          ? getColorValue(name)
-          : color.value || getColorValue(name),
-        images: variantImages,
-        image: variantImages[0] || mainImage,
-      };
-    })
+        return {
+          name,
+          value: isString
+            ? getColorValue(name)
+            : color.value || getColorValue(name),
+          images: variantImages,
+          image: variantImages[0] || mainImage,
+        };
+      })
     : [];
 
   const price = Number(item.price) || 0;
@@ -110,8 +111,8 @@ const normalizeProduct = (item) => {
   const oldPrice =
     Number(
       item.oldPrice ||
-      item.compareAtPrice ||
-      item.originalPrice
+        item.compareAtPrice ||
+        item.originalPrice
     ) ||
     (discount > 0 && discount < 100
       ? Math.round(price / (1 - discount / 100))
@@ -119,26 +120,26 @@ const normalizeProduct = (item) => {
 
   const sizes = Array.isArray(item.sizes)
     ? item.sizes
-      .map((size) =>
-        typeof size === "object" && size !== null
-          ? Number(size.size || size.value)
-          : Number(size)
-      )
-      .filter((size) => Number.isFinite(size) && size > 0)
+        .map((size) =>
+          typeof size === "object" && size !== null
+            ? Number(size.size || size.value)
+            : Number(size)
+        )
+        .filter((size) => Number.isFinite(size) && size > 0)
     : [];
 
   const features = Array.isArray(item.features)
     ? item.features.map((feature) =>
-      typeof feature === "string"
-        ? { title: feature, description: "" }
-        : {
-          title:
-            feature.title ||
-            feature.name ||
-            "Product feature",
-          description: feature.description || "",
-        }
-    )
+        typeof feature === "string"
+          ? { title: feature, description: "" }
+          : {
+              title:
+                feature.title ||
+                feature.name ||
+                "Product feature",
+              description: feature.description || "",
+            }
+      )
     : [];
 
   const rawStock =
@@ -363,10 +364,10 @@ export default function ProductDetails() {
         const calculatedAverage =
           reviewList.length > 0
             ? reviewList.reduce(
-              (sum, review) =>
-                sum + Number(review.rating || 0),
-              0
-            ) / reviewList.length
+                (sum, review) =>
+                  sum + Number(review.rating || 0),
+                0
+              ) / reviewList.length
             : 0;
 
         setAverageRating(
@@ -397,53 +398,72 @@ export default function ProductDetails() {
     return () => controller.abort();
   }, [product?.id]);
 
-  const isWishlisted = wishlistItems.some(
-    (item) =>
-      String(item._id || item.id || item.productId) ===
-      String(product?.id)
+  const isWishlisted = useMemo(
+    () =>
+      wishlistItems.some(
+        (item) =>
+          String(item._id || item.id || item.productId) ===
+          String(product?.id)
+      ),
+    [wishlistItems, product?.id]
   );
 
-  const selectedVariant = product?.colors.find(
-    (color) => color.name === selectedColor
+  const selectedVariant = useMemo(
+    () =>
+      product?.colors.find(
+        (color) => color.name === selectedColor
+      ),
+    [product?.colors, selectedColor]
   );
 
-  const displayedImages = product
-    ? selectedVariant?.images?.length
-      ? selectedVariant.images
-      : product.images.length
-        ? product.images
-        : product.image
-          ? [product.image]
-          : []
-    : [];
+  const displayedImages = useMemo(
+    () =>
+      product
+        ? selectedVariant?.images?.length
+          ? selectedVariant.images
+          : product.images.length
+            ? product.images
+            : product.image
+              ? [product.image]
+              : []
+        : [],
+    [product, selectedVariant]
+  );
 
-  const displayImage = displayedImages.includes(activeImage)
-    ? activeImage
-    : displayedImages[0] || product?.image || "";
+  const displayImage = useMemo(
+    () =>
+      displayedImages.includes(activeImage)
+        ? activeImage
+        : displayedImages[0] || product?.image || "",
+    [displayedImages, activeImage, product?.image]
+  );
 
   useEffect(() => {
     setActiveImage("");
   }, [selectedColor]);
 
   // Sirf selected size aur color ki existing cart quantity.
-  const existingQuantity = cartItems
-    .filter(
-      (item) =>
-        String(item._id || item.productId || item.id) ===
-        String(product?.id) &&
-        String(item.size || item.selectedSize || "") ===
-        String(selectedSize || "") &&
-        String(item.color || item.selectedColor || "") ===
-        String(selectedColor || "")
-    )
-    .reduce(
-      (total, item) => total + Number(item.quantity || 0),
-      0
-    );
+  const existingQuantity = useMemo(
+    () =>
+      cartItems
+        .filter(
+          (item) =>
+            String(item._id || item.productId || item.id) ===
+              String(product?.id) &&
+            String(item.size || item.selectedSize || "") ===
+              String(selectedSize || "") &&
+            String(item.color || item.selectedColor || "") ===
+              String(selectedColor || "")
+        )
+        .reduce(
+          (total, item) => total + Number(item.quantity || 0),
+          0
+        ),
+    [cartItems, product?.id, selectedSize, selectedColor]
+  );
 
   // Product.stock mein globally available stock hota hai.
   const remainingStock = Math.max(0, Number(product?.stock || 0));
-
   const outOfStock = remainingStock <= 0;
 
   const selectedColorStock = selectedVariant?.stock;
@@ -529,7 +549,7 @@ export default function ProductDetails() {
       if (!reservationResponse.ok || reservationData.ok === false) {
         throw new Error(
           reservationData.message ||
-          "Stock reserve nahi ho saka. Dobara try karein."
+            "Stock reserve nahi ho saka. Dobara try karein."
         );
       }
 
@@ -554,11 +574,11 @@ export default function ProductDetails() {
       const itemExists = updatedCart.items.some(
         (item) =>
           String(item._id || item.productId || item.id) ===
-          String(product.id) &&
+            String(product.id) &&
           String(item.size || item.selectedSize || "") ===
-          String(selectedSize) &&
+            String(selectedSize) &&
           String(item.color || item.selectedColor || "") ===
-          String(selectedColor || "")
+            String(selectedColor || "")
       );
 
       if (updatedCart.error || !itemExists) {
@@ -641,6 +661,11 @@ export default function ProductDetails() {
                   key={displayImage}
                   src={displayImage}
                   alt={`${product.title} ${selectedColor}`}
+                  width="800"
+                  height="840"
+                  loading="eager"
+                  fetchPriority="high"
+                  decoding="async"
                   className="aspect-[4/4.2] w-full object-contain mix-blend-multiply"
                 />
               ) : (
@@ -673,8 +698,9 @@ export default function ProductDetails() {
                       : "Add to wishlist"
                   }
                   aria-pressed={isWishlisted}
-                  className={`absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white transition hover:bg-black hover:text-white ${isWishlisted ? "text-red-600" : ""
-                    }`}
+                  className={`absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white transition hover:bg-black hover:text-white ${
+                    isWishlisted ? "text-red-600" : ""
+                  }`}
                 >
                   <FiHeart
                     className={isWishlisted ? "fill-current" : ""}
@@ -692,14 +718,19 @@ export default function ProductDetails() {
                     type="button"
                     onClick={() => setActiveImage(image)}
                     aria-label={`View ${selectedColor} image ${index + 1}`}
-                    className={`overflow-hidden border ${displayImage === image
+                    className={`overflow-hidden border ${
+                      displayImage === image
                         ? "border-black"
                         : "border-transparent"
-                      } bg-[#f5f3ef]`}
+                    } bg-[#f5f3ef]`}
                   >
                     <img
                       src={image}
                       alt={`${product.title} ${selectedColor} view ${index + 1}`}
+                      width="200"
+                      height="200"
+                      loading="lazy"
+                      decoding="async"
                       className="aspect-square w-full object-contain mix-blend-multiply"
                     />
                   </button>
@@ -808,10 +839,11 @@ export default function ProductDetails() {
                       aria-label={`Select ${color.name}`}
                       aria-pressed={selectedColor === color.name}
                       title={color.name}
-                      className={`h-11 w-11 rounded-full border p-1 ${selectedColor === color.name
+                      className={`h-11 w-11 rounded-full border p-1 ${
+                        selectedColor === color.name
                           ? "border-black"
                           : "border-gray-200"
-                        }`}
+                      }`}
                     >
                       <span
                         className="block h-full w-full rounded-full border border-black/10"
@@ -849,10 +881,11 @@ export default function ProductDetails() {
                       setCartMessage("");
                       dispatch(clearCartError());
                     }}
-                    className={`flex h-12 items-center justify-center border text-sm transition ${selectedSize === size
+                    className={`flex h-12 items-center justify-center border text-sm transition ${
+                      selectedSize === size
                         ? "border-black bg-black text-white"
                         : "border-gray-300 hover:border-black"
-                      }`}
+                    }`}
                   >
                     {size}
                   </button>
@@ -911,10 +944,11 @@ export default function ProductDetails() {
             {visibleCartMessage && (
               <p
                 role="status"
-                className={`mt-4 p-3 text-sm ${visibleCartMessage.toLowerCase().includes("added")
+                className={`mt-4 p-3 text-sm ${
+                  visibleCartMessage.toLowerCase().includes("added")
                     ? "bg-green-50 text-green-700"
                     : "bg-red-50 text-red-600"
-                  }`}
+                }`}
               >
                 {visibleCartMessage}
               </p>
@@ -944,10 +978,11 @@ export default function ProductDetails() {
                         })
                       )
                     }
-                    className={`flex min-h-12 items-center justify-center gap-3 border px-5 py-3 text-sm font-semibold transition ${isWishlisted
+                    className={`flex min-h-12 items-center justify-center gap-3 border px-5 py-3 text-sm font-semibold transition ${
+                      isWishlisted
                         ? "border-red-600 bg-red-50 text-red-600"
                         : "border-black text-black hover:bg-[#f5f3ef]"
-                      }`}
+                    }`}
                   >
                     <FiHeart
                       size={17}

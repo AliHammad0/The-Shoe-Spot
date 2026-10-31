@@ -1,5 +1,5 @@
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { FiStar, FiArrowUpRight, FiCheckCircle } from "react-icons/fi";
 
 const reviews = [
@@ -77,6 +77,8 @@ const reviews = [
   },
 ];
 
+const TOTAL_REVIEWS = reviews.length;
+
 function Stars() {
   return (
     <span
@@ -147,9 +149,11 @@ export default function Reviews() {
   const sliderRef = useRef(null);
   const timerRef = useRef(null);
   const activeIndexRef = useRef(0);
+  const scrollFrameRef = useRef(null);
+
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const scrollToReview = (index) => {
+  const scrollToReview = useCallback((index) => {
     const slider = sliderRef.current;
     const card = slider?.children[index];
 
@@ -160,35 +164,48 @@ export default function Reviews() {
       slider.getBoundingClientRect().left +
       slider.scrollLeft;
 
-    slider.scrollTo({ left, behavior: "smooth" });
+    slider.scrollTo({
+      left,
+      behavior: "smooth",
+    });
+
     activeIndexRef.current = index;
     setActiveIndex(index);
-  };
+  }, []);
 
   useEffect(() => {
     const slider = sliderRef.current;
+
     if (!slider) return;
 
     const updateActiveIndex = () => {
-      const children = Array.from(slider.children);
-      const sliderLeft = slider.getBoundingClientRect().left;
+      if (scrollFrameRef.current !== null) {
+        cancelAnimationFrame(scrollFrameRef.current);
+      }
 
-      let closestIndex = 0;
-      let closestDistance = Infinity;
+      scrollFrameRef.current = requestAnimationFrame(() => {
+        const children = slider.children;
+        const sliderLeft = slider.getBoundingClientRect().left;
 
-      children.forEach((child, index) => {
-        const distance = Math.abs(
-          child.getBoundingClientRect().left - sliderLeft
-        );
+        let closestIndex = 0;
+        let closestDistance = Infinity;
 
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          closestIndex = index;
+        for (let index = 0; index < children.length; index++) {
+          const distance = Math.abs(
+            children[index].getBoundingClientRect().left - sliderLeft
+          );
+
+          if (distance < closestDistance) {
+            closestDistance = distance;
+            closestIndex = index;
+          }
+        }
+
+        if (activeIndexRef.current !== closestIndex) {
+          activeIndexRef.current = closestIndex;
+          setActiveIndex(closestIndex);
         }
       });
-
-      activeIndexRef.current = closestIndex;
-      setActiveIndex(closestIndex);
     };
 
     slider.addEventListener("scroll", updateActiveIndex, {
@@ -197,6 +214,10 @@ export default function Reviews() {
 
     return () => {
       slider.removeEventListener("scroll", updateActiveIndex);
+
+      if (scrollFrameRef.current !== null) {
+        cancelAnimationFrame(scrollFrameRef.current);
+      }
     };
   }, []);
 
@@ -209,19 +230,22 @@ export default function Reviews() {
       if (!mediaQuery.matches) return;
 
       timerRef.current = window.setInterval(() => {
-        const nextIndex = (activeIndexRef.current + 1) % reviews.length;
+        const nextIndex =
+          (activeIndexRef.current + 1) % TOTAL_REVIEWS;
+
         scrollToReview(nextIndex);
       }, 3500);
     };
 
     startSlider();
+
     mediaQuery.addEventListener("change", startSlider);
 
     return () => {
       window.clearInterval(timerRef.current);
       mediaQuery.removeEventListener("change", startSlider);
     };
-  }, []);
+  }, [scrollToReview]);
 
   return (
     <section
@@ -241,6 +265,7 @@ export default function Reviews() {
                 aria-hidden="true"
                 className="h-px w-8 bg-[#b49a6a]"
               />
+
               <span className="text-[10px] font-bold uppercase tracking-[3px] text-[#8b7755]">
                 Customer stories
               </span>
@@ -271,6 +296,7 @@ export default function Reviews() {
                 className="mb-2 text-[#a08a64]"
                 size={19}
               />
+
               <p className="text-xs font-semibold text-[#4b493f]">
                 Real feedback
               </p>
@@ -308,7 +334,9 @@ export default function Reviews() {
                 type="button"
                 onClick={() => scrollToReview(index)}
                 aria-label={`Go to review ${index + 1}`}
-                aria-current={activeIndex === index ? "true" : undefined}
+                aria-current={
+                  activeIndex === index ? "true" : undefined
+                }
                 className={`h-1.5 rounded-full transition-all duration-300 ${
                   activeIndex === index
                     ? "w-7 bg-[#9b825a]"
@@ -323,6 +351,7 @@ export default function Reviews() {
           <p className="text-xs text-[#8a867e]">
             Thoughtful details. Everyday comfort.
           </p>
+
           <p className="text-[10px] font-semibold uppercase tracking-[2px] text-[#8b7755]">
             Customer feedback
           </p>

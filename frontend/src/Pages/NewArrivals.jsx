@@ -9,6 +9,9 @@ const API_URL =
 const formatPrice = (price) =>
   `Rs. ${Number(price || 0).toLocaleString("en-PK")}`;
 
+const PLACEHOLDER_IMAGE =
+  "https://placehold.co/600x700/f2eee7/191919?text=New+Arrival";
+
 const getImage = (product) => {
   if (Array.isArray(product.images) && product.images.length > 0) {
     const image = product.images[0];
@@ -20,7 +23,7 @@ const getImage = (product) => {
   if (typeof product.image === "string") return product.image;
   if (product.image?.url) return product.image.url;
 
-  return "https://placehold.co/600x700/f2eee7/191919?text=New+Arrival";
+  return PLACEHOLDER_IMAGE;
 };
 
 const getColors = (colors) => {
@@ -73,7 +76,8 @@ const NewArrivals = () => {
 
         const newArrivalsOnly = fetchedProducts.filter(
           (product) =>
-            product.newArrival === true &&
+            (product.newArrival === true ||
+              product.isNewArrival === true) &&
             product.isActive !== false
         );
 
@@ -97,36 +101,52 @@ const NewArrivals = () => {
     return () => controller.abort();
   }, []);
 
-  const filteredProducts = useMemo(() => {
-    let result = [...products];
+  const availableColors = useMemo(
+    () => [
+      ...new Set(
+        products.flatMap((product) => getColors(product.colors))
+      ),
+    ],
+    [products]
+  );
 
-    if (selectedColors.length > 0) {
-      result = result.filter((product) =>
-        getColors(product.colors).some((color) =>
+  const filteredProducts = useMemo(() => {
+    let result = products.filter((product) => {
+      if (
+        selectedColors.length > 0 &&
+        !getColors(product.colors).some((color) =>
           selectedColors.includes(color)
         )
-      );
-    }
+      ) {
+        return false;
+      }
 
-    if (minPrice !== "") {
-      result = result.filter(
-        (product) => Number(product.price) >= Number(minPrice)
-      );
-    }
+      const price = Number(product.specialPrice ?? product.price ?? 0);
 
-    if (maxPrice !== "") {
-      result = result.filter(
-        (product) => Number(product.price) <= Number(maxPrice)
-      );
-    }
+      if (minPrice !== "" && price < Number(minPrice)) {
+        return false;
+      }
+
+      if (maxPrice !== "" && price > Number(maxPrice)) {
+        return false;
+      }
+
+      return true;
+    });
+
+    result = [...result];
 
     if (sortBy === "price-low") {
       result.sort(
-        (a, b) => Number(a.price) - Number(b.price)
+        (a, b) =>
+          Number(a.specialPrice ?? a.price ?? 0) -
+          Number(b.specialPrice ?? b.price ?? 0)
       );
     } else if (sortBy === "price-high") {
       result.sort(
-        (a, b) => Number(b.price) - Number(a.price)
+        (a, b) =>
+          Number(b.specialPrice ?? b.price ?? 0) -
+          Number(a.specialPrice ?? a.price ?? 0)
       );
     } else {
       result.sort(
@@ -154,15 +174,8 @@ const NewArrivals = () => {
     setSortBy("newest");
   };
 
-  const availableColors = [
-    ...new Set(
-      products.flatMap((product) => getColors(product.colors))
-    ),
-  ];
-
   return (
     <main className="min-h-screen bg-[#faf9f6] text-[#191919]">
-
       {/* Page Heading */}
       <section className="px-5 pb-10 pt-12 text-center sm:px-8 sm:pt-16">
         <p className="mb-3 text-xs font-medium uppercase tracking-[0.3em] text-[#6b5738]">
@@ -181,7 +194,6 @@ const NewArrivals = () => {
 
       {/* Products Section */}
       <section className="mx-auto max-w-[1600px] px-4 pb-16 sm:px-8 lg:px-12">
-
         {/* Toolbar */}
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-y border-[#e7e2d9] py-4">
           <p className="text-sm text-gray-600">
@@ -195,6 +207,7 @@ const NewArrivals = () => {
             <button
               type="button"
               onClick={() => setFiltersOpen(!filtersOpen)}
+              aria-expanded={filtersOpen}
               className="flex items-center gap-2 border border-[#ded8ce] px-4 py-2.5 text-sm transition hover:bg-[#eee9e0] lg:hidden"
             >
               {filtersOpen ? (
@@ -224,7 +237,6 @@ const NewArrivals = () => {
         </div>
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-10">
-
           {/* Filters Sidebar */}
           <aside
             className={`${
@@ -309,8 +321,6 @@ const NewArrivals = () => {
 
           {/* Products */}
           <div className="min-w-0">
-
-            {/* Loading */}
             {loading ? (
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                 {[1, 2, 3, 4, 5, 6].map((item) => (
@@ -323,24 +333,18 @@ const NewArrivals = () => {
                 ))}
               </div>
             ) : error ? (
-
-              /* Error */
               <div className="py-16 text-center">
                 <h2 className="text-xl font-medium">
                   Unable to load new arrivals
                 </h2>
 
-                <p className="mt-3 text-sm text-gray-600">
-                  {error}
-                </p>
+                <p className="mt-3 text-sm text-gray-600">{error}</p>
 
                 <p className="mt-2 text-xs text-gray-500">
                   API: {API_URL}
                 </p>
               </div>
             ) : filteredProducts.length === 0 ? (
-
-              /* Empty */
               <div className="py-20 text-center">
                 <h2 className="text-xl font-medium">
                   No new arrivals found
@@ -363,29 +367,28 @@ const NewArrivals = () => {
                 )}
               </div>
             ) : (
-
-              /* Product Grid */
               <div className="new-arrivals-mobile-slider grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-x-5 sm:gap-y-10 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                {filteredProducts.map((product) => {
+                {filteredProducts.map((product, index) => {
                   const colors = getColors(product.colors);
                   const productId = product._id || product.id;
+                  const productName = product.title || product.name || "Men's shoes";
 
                   return (
-                    <article
-                      key={productId}
-                      className="group min-w-0"
-                    >
-
+                    <article key={productId} className="group min-w-0">
                       {/* Product Image */}
                       <Link
                         to={`/products/${productId}`}
                         className="relative block overflow-hidden bg-[#eeeae3]"
-                        aria-label={`View ${product.title || product.name}`}
+                        aria-label={`View ${productName}`}
                       >
                         <img
                           src={getImage(product)}
-                          alt={product.title || product.name || "Men's shoes"}
+                          alt={productName}
+                          width="400"
+                          height="500"
                           loading="lazy"
+                          decoding="async"
+                          fetchPriority="low"
                           className="aspect-[4/5] w-full object-cover transition duration-500 group-hover:scale-[1.03]"
                         />
 
@@ -400,13 +403,12 @@ const NewArrivals = () => {
                           {product.category || "Shoes"}
                         </p>
 
-                        {/* Product Name */}
                         <h2 className="text-xs font-medium leading-5 sm:text-sm">
                           <Link
                             to={`/products/${productId}`}
                             className="transition hover:text-[#8c7650]"
                           >
-                            {product.title || product.name}
+                            {productName}
                           </Link>
                         </h2>
 

@@ -1,7 +1,7 @@
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
-import { useSelector } from "react-redux";
+import { useSelector, shallowEqual } from "react-redux";
 import {
   FiSearch,
   FiShoppingBag,
@@ -32,6 +32,20 @@ const navClass = ({ isActive }) =>
     isActive ? "text-black" : "text-gray-600 hover:text-black"
   }`;
 
+const getProductImage = (product) => {
+  if (Array.isArray(product.images) && product.images.length > 0) {
+    const image = product.images[0];
+
+    if (typeof image === "string") return image;
+    if (image?.url) return image.url;
+  }
+
+  if (typeof product.image === "string") return product.image;
+  if (product.image?.url) return product.image.url;
+
+  return "https://placehold.co/100x100/f2eee7/191919?text=Shoe";
+};
+
 export default function Header() {
   const navigate = useNavigate();
   const searchRef = useRef(null);
@@ -51,26 +65,34 @@ export default function Header() {
 
   const [cartOpen, setCartOpen] = useState(false);
 
-  const cartItems = useSelector((state) => state.cart.items || []);
-
-  const cartCount = cartItems.reduce(
-    (total, item) => total + Number(item.quantity || 0),
-    0
+  const cartItems = useSelector(
+    (state) => state.cart.items || [],
+    shallowEqual
   );
 
   const wishlistItems = useSelector(
-    (state) => state.wishlist?.items || []
+    (state) => state.wishlist?.items || [],
+    shallowEqual
+  );
+
+  const cartCount = useMemo(
+    () =>
+      cartItems.reduce(
+        (total, item) => total + Number(item.quantity || 0),
+        0
+      ),
+    [cartItems]
   );
 
   const wishlistCount = wishlistItems.length;
 
-  const savedUser = (() => {
+  const savedUser = useMemo(() => {
     try {
       return JSON.parse(localStorage.getItem("user") || "null");
     } catch {
       return null;
     }
-  })();
+  }, []);
 
   const token = localStorage.getItem("token");
   const isLoggedIn = Boolean(token);
@@ -80,7 +102,10 @@ export default function Header() {
 
   useEffect(() => {
     const handleOutsideClick = (event) => {
-      if (searchRef.current && !searchRef.current.contains(event.target)) {
+      if (
+        searchRef.current &&
+        !searchRef.current.contains(event.target)
+      ) {
         setShowSuggestions(false);
       }
     };
@@ -90,6 +115,7 @@ export default function Header() {
     return () => {
       document.removeEventListener("mousedown", handleOutsideClick);
       clearTimeout(debounceRef.current);
+      requestIdRef.current += 1;
     };
   }, []);
 
@@ -110,10 +136,13 @@ export default function Header() {
     setSearchLoading(true);
     setSearchError("");
 
+    const controller = new AbortController();
+
     debounceRef.current = setTimeout(async () => {
       try {
         const response = await fetch(
-          `${API_URL}/products/search?q=${encodeURIComponent(query)}`
+          `${API_URL}/products/search?q=${encodeURIComponent(query)}`,
+          { signal: controller.signal }
         );
 
         const data = await response.json();
@@ -121,14 +150,21 @@ export default function Header() {
         if (requestId !== requestIdRef.current) return;
 
         if (!response.ok || !data.ok) {
-          throw new Error(data.message || "Products load nahi ho sake.");
+          throw new Error(
+            data.message || "Products load nahi ho sake."
+          );
         }
 
         setSearchProducts(
           Array.isArray(data.products) ? data.products : []
         );
       } catch (error) {
-        if (requestId !== requestIdRef.current) return;
+        if (
+          error.name === "AbortError" ||
+          requestId !== requestIdRef.current
+        ) {
+          return;
+        }
 
         console.error("Live product search error:", error);
         setSearchProducts([]);
@@ -140,9 +176,12 @@ export default function Header() {
           setSearchLoading(false);
         }
       }
-    }, 250);
+    }, 300);
 
-    return () => clearTimeout(debounceRef.current);
+    return () => {
+      clearTimeout(debounceRef.current);
+      controller.abort();
+    };
   }, [searchQuery, searchOpen]);
 
   const closeMobileMenu = () => {
@@ -162,6 +201,12 @@ export default function Header() {
     setCartOpen(false);
   };
 
+  const toggleSearch = () => {
+    setSearchOpen((previous) => !previous);
+    setShowSuggestions(true);
+    setSearchError("");
+  };
+
   return (
     <div style={{ fontFamily: "Arial, Helvetica, sans-serif" }}>
       {/* Announcement Bar */}
@@ -178,6 +223,7 @@ export default function Header() {
             onClick={() => setMobileOpen(!mobileOpen)}
             className="flex h-9 w-8 shrink-0 items-center justify-start text-black lg:hidden"
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileOpen}
           >
             {mobileOpen ? <FiX size={21} /> : <FiMenu size={21} />}
           </button>
@@ -250,14 +296,12 @@ export default function Header() {
               Store Locator
             </NavLink>
 
-            {/* My Profile */}
             {isLoggedIn && (
               <NavLink to="/profile" className={navClass}>
                 My Profile
               </NavLink>
             )}
 
-            {/* Admin Dashboard */}
             {isAdmin && (
               <NavLink to="/admin" className={navClass}>
                 Admin
@@ -270,13 +314,10 @@ export default function Header() {
             {/* Search */}
             <button
               type="button"
-              onClick={() => {
-                setSearchOpen((previous) => !previous);
-                setShowSuggestions(true);
-                setSearchError("");
-              }}
+              onClick={toggleSearch}
               className="text-black transition-colors hover:text-gray-500"
               aria-label="Search products"
+              aria-expanded={searchOpen}
             >
               {searchOpen ? <FiX size={19} /> : <FiSearch size={19} />}
             </button>
@@ -395,8 +436,12 @@ export default function Header() {
                         className="flex w-full items-center gap-4 border-b border-gray-100 p-3 text-left transition-colors last:border-b-0 hover:bg-[#faf9f6]"
                       >
                         <img
-                          src={product.images?.[0] || "/placeholder.png"}
-                          alt={product.title}
+                          src={getProductImage(product)}
+                          alt={product.title || "Shoe"}
+                          width="64"
+                          height="64"
+                          loading="lazy"
+                          decoding="async"
                           className="h-16 w-16 shrink-0 bg-[#f5f3ee] object-cover"
                         />
 
@@ -442,7 +487,6 @@ export default function Header() {
                 Home
               </NavLink>
 
-              {/* Mobile Shop Dropdown */}
               <button
                 type="button"
                 onClick={() => setMobileShopOpen(!mobileShopOpen)}
@@ -505,7 +549,6 @@ export default function Header() {
                 Store Locator
               </NavLink>
 
-              {/* Mobile Wishlist */}
               <Link
                 to="/wishlist"
                 onClick={closeMobileMenu}
@@ -515,7 +558,6 @@ export default function Header() {
                 Wishlist ({wishlistCount})
               </Link>
 
-              {/* Mobile My Profile / Login */}
               <Link
                 to={accountPath}
                 onClick={closeMobileMenu}
@@ -525,7 +567,6 @@ export default function Header() {
                 {isLoggedIn ? "My Profile" : "Login"}
               </Link>
 
-              {/* Mobile Admin Dashboard */}
               {isAdmin && (
                 <NavLink
                   to="/admin"

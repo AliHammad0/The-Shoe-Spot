@@ -31,12 +31,14 @@ const helpLinks = [
 export default function Footer() {
   const handleSubscribe = (e) => {
     e.preventDefault();
-    const email = e.target.email.value.trim();
+
+    const form = e.currentTarget;
+    const email = form.elements.email.value.trim();
 
     if (!email) return;
 
     alert("Thank you for subscribing!");
-    e.target.reset();
+    form.reset();
   };
 
   return (
@@ -46,7 +48,6 @@ export default function Footer() {
     >
       <div className="mx-auto max-w-[1440px] px-5 py-14 sm:px-8 lg:px-10 lg:py-16">
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_0.8fr_0.9fr_1.1fr] lg:gap-12">
-
           {/* Brand and Newsletter */}
           <div>
             <a
@@ -79,6 +80,7 @@ export default function Footer() {
                   name="email"
                   placeholder="Email address"
                   aria-label="Email address"
+                  autoComplete="email"
                   required
                   className="min-w-0 flex-1 rounded border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-black"
                 />
@@ -88,7 +90,7 @@ export default function Footer() {
                   className="inline-flex items-center justify-center gap-2 rounded bg-black px-5 py-3 text-sm font-medium text-white transition hover:bg-gray-800"
                 >
                   Sign up
-                  <FiArrowUpRight size={16} />
+                  <FiArrowUpRight size={16} aria-hidden="true" />
                 </button>
               </form>
             </div>
@@ -143,7 +145,7 @@ export default function Footer() {
             <a
               href="https://api.whatsapp.com/send/?phone=123456&text=Hello&type=phone_number&app_absent=0"
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="inline-flex items-center gap-3 rounded bg-gray-100 px-4 py-3 text-sm text-black transition hover:bg-gray-200"
             >
               <svg
@@ -185,7 +187,7 @@ export default function Footer() {
               <a
                 href="https://www.instagram.com/"
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 aria-label="Instagram"
                 className="text-black transition hover:text-gray-500"
               >
@@ -195,7 +197,7 @@ export default function Footer() {
               <a
                 href="https://www.facebook.com/"
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 aria-label="Facebook"
                 className="text-black transition hover:text-gray-500"
               >
@@ -205,7 +207,7 @@ export default function Footer() {
               <a
                 href="https://www.youtube.com"
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 aria-label="YouTube"
                 className="text-black transition hover:text-gray-500"
               >
@@ -222,10 +224,7 @@ export default function Footer() {
               © {new Date().getFullYear()} Urbansole. All rights reserved.
             </p>
 
-            <a
-              href="/"
-              className="transition hover:text-black"
-            >
+            <a href="/" className="transition hover:text-black">
               Crafted for everyday comfort.
             </a>
           </div>
