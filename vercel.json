@@ -17,7 +17,10 @@
         "Referrer-Policy": "strict-origin-when-cross-origin",
         "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
         "X-XSS-Protection": "0",
-        "Cross-Origin-Opener-Policy": "same-origin"
+        "Cross-Origin-Opener-Policy": "same-origin",
+        "Content-Security-Policy": "default-src 'self'; object-src 'none'; base-uri 'self'",
+        "Cross-Origin-Resource-Policy": "cross-origin",
+        "Cross-Origin-Embedder-Policy": "unsafe-none"
       }
     }
   ]
