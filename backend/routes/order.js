@@ -19,7 +19,7 @@ const ordersRouter = express.Router();
 ordersRouter.post("/", authMiddleware, createOrder);
 
 // Customer ke apne orders
-ordersRouter.get("/my-orders", getMyOrders);
+ordersRouter.get("/my-orders", authMiddleware, getMyOrders);
 
 // Admin orders management
 ordersRouter.get("/", authMiddleware, adminMiddleware, getAllOrders);
