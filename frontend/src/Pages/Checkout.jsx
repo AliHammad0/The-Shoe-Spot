@@ -1,1148 +1,922 @@
 
-import { useEffect, useState } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { loadStripe } from "@stripe/stripe-js";
 import {
-  FiShoppingBag,
-  FiTruck,
-  FiRefreshCw,
-  FiShield,
-  FiCheck,
-  FiMinus,
-  FiPlus,
-  FiStar,
-  FiHeart,
+  Elements,
+  PaymentElement,
+  useStripe,
+  useElements,
+} from "@stripe/react-stripe-js";
+import {
+  FiCheckCircle,
+  FiCreditCard,
+  FiPackage,
 } from "react-icons/fi";
-import {
-  addToCart as addCartItem,
-  clearCartError,
-} from "../redux/slices/cartSlice";
-import { toggleWishlist } from "../redux/slices/wishlistSlice.js";
-import { store } from "../redux/store.js";
-const API_BASE_URL =
+import { clearCart } from "../redux/slices/cartSlice";
+import getCartId from "../utils/cartId";
+
+const API_URL =
   "https://the-shoe-spot-backend.vercel.app/api/v1";
-const API_URL = `${API_BASE_URL}/products`;
 
-const formatPrice = (price) =>
-  `Rs. ${Number(price || 0).toLocaleString("en-PK")}`;
+const stripePromise = loadStripe(
+  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || ""
+);
 
-const getColorValue = (color) => {
-  const colors = {
-    Black: "#000000",
-    White: "#ffffff",
-    Beige: "#d6c4a4",
-    Green: "#47734b",
-    Olive: "#777653",
-    Navy: "#202b42",
-    Brown: "#795548",
-    Blue: "#2563eb",
-    Grey: "#808080",
-    Gray: "#808080",
-    Red: "#dc2626",
-  };
+const SHIPPING_CHARGES = 250;
+const FREE_SHIPPING_LIMIT = 5000;
 
-  return colors[color] || "#d1d5db";
-};
+const getProductId = (product) =>
+  product?._id ||
+  product?.productId ||
+  product?.id ||
+  product?.product?._id ||
+  "";
 
-const normalizeImages = (value) => {
-  if (!Array.isArray(value)) return [];
+const getPrice = (product) =>
+  Number(
+    product?.specialPrice ??
+      product?.price ??
+      product?.product?.specialPrice ??
+      product?.product?.price ??
+      0
+  );
 
-  return value
-    .map((item) =>
-      typeof item === "string"
-        ? item
-        : item?.url || item?.image || ""
-    )
-    .filter(Boolean);
-};
+const getQuantity = (product) =>
+  Number(product?.quantity ?? product?.qty ?? 1);
 
-const normalizeProduct = (item) => {
-  if (!item || typeof item !== "object") return null;
+const getProductTitle = (product) =>
+  product?.title ||
+  product?.name ||
+  product?.product?.title ||
+  product?.product?.name ||
+  "Product";
 
-  const id = String(item._id || item.id || "");
-  const rawImages = normalizeImages(item.images);
+const getProductImage = (product) =>
+  product?.image ||
+  product?.images?.[0] ||
+  product?.product?.image ||
+  product?.product?.images?.[0] ||
+  "";
 
-  const mainImage =
-    (typeof item.image === "string" && item.image) ||
-    rawImages[0] ||
+const getHeaders = () => {
+  const token =
+    localStorage.getItem("token") ||
+    localStorage.getItem("accessToken") ||
     "";
 
-  const colors = Array.isArray(item.colors)
-    ? item.colors.map((color) => {
-        const isString = typeof color === "string";
-        const name = isString
-          ? color
-          : color.name || color.color || "Default";
-
-        const variantImages = isString
-          ? []
-          : [
-              ...normalizeImages(color.images),
-              ...(typeof color.image === "string"
-                ? [color.image]
-                : []),
-              ...(typeof color.image === "object" && color.image?.url
-                ? [color.image.url]
-                : []),
-            ].filter(
-              (image, index, array) =>
-                array.indexOf(image) === index
-            );
-
-        return {
-          name,
-          value: isString
-            ? getColorValue(name)
-            : color.value || getColorValue(name),
-          images: variantImages,
-          image: variantImages[0] || mainImage,
-        };
-      })
-    : [];
-
-  const price = Number(item.price) || 0;
-  const discount = Math.min(
-    100,
-    Math.max(0, Number(item.discount) || 0)
-  );
-
-  const oldPrice =
-    Number(
-      item.oldPrice ||
-        item.compareAtPrice ||
-        item.originalPrice
-    ) ||
-    (discount > 0 && discount < 100
-      ? Math.round(price / (1 - discount / 100))
-      : price);
-
-  const sizes = Array.isArray(item.sizes)
-    ? item.sizes
-        .map((size) =>
-          typeof size === "object" && size !== null
-            ? Number(size.size || size.value)
-            : Number(size)
-        )
-        .filter((size) => Number.isFinite(size) && size > 0)
-    : [];
-
-  const features = Array.isArray(item.features)
-    ? item.features.map((feature) =>
-        typeof feature === "string"
-          ? { title: feature, description: "" }
-          : {
-              title:
-                feature.title ||
-                feature.name ||
-                "Product feature",
-              description: feature.description || "",
-            }
-      )
-    : [];
-
-  const rawStock =
-    item.stock ??
-    item.quantityAvailable ??
-    item.quantityInStock ??
-    item.countInStock ??
-    item.availableStock ??
-    item.quantity ??
-    0;
-
   return {
-    id,
-    title: item.title || item.name || "Men's Shoes",
-    category:
-      typeof item.category === "string"
-        ? item.category
-        : item.category?.name || "Shoes",
-    price,
-    oldPrice,
-    discount:
-      oldPrice > price && oldPrice > 0
-        ? Math.round(((oldPrice - price) / oldPrice) * 100)
-        : discount,
-    rating: Number(item.rating || item.averageRating) || 0,
-    reviews:
-      Number(item.reviewsCount || item.numReviews) ||
-      (Array.isArray(item.reviews) ? item.reviews.length : 0),
-    color: item.color || colors?.[0]?.name || "Default",
-    colors,
-    sizes: sizes.length ? sizes : [40, 41, 42, 43, 44, 45],
-    stock: Math.max(0, Number(rawStock) || 0),
-    images: rawImages.length
-      ? rawImages
-      : mainImage
-        ? [mainImage]
-        : [],
-    image: mainImage,
-    description:
-      item.description || "Product details will be updated soon.",
-    features,
-    slug: item.slug || id,
-    brand: item.brand || "",
-    isActive: item.isActive !== false,
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 };
 
-const getResponseProduct = (data) => {
-  if (data?.product) return data.product;
-  if (data?.data?.product) return data.data.product;
+const getGuestHeaders = () => ({
+  "Content-Type": "application/json",
+});
 
-  if (data?.data && !Array.isArray(data.data)) {
-    return data.data;
-  }
+const formatPrice = (amount) =>
+  new Intl.NumberFormat("en-PK", {
+    style: "currency",
+    currency: "PKR",
+    maximumFractionDigits: 0,
+  }).format(Number(amount) || 0);
 
-  return data;
-};
+const getErrorMessage = (data, fallback) =>
+  data?.message || data?.error || fallback;
 
-export default function ProductDetails() {
-  const { id } = useParams();
-  const location = useLocation();
-  const navigate = useNavigate();
-  const dispatch = useDispatch();
+const GUEST_ORDERS_KEY = "shoe-spot-guest-orders";
 
-  const cartItems = useSelector((state) => state.cart.items || []);
-  const reduxCartError = useSelector((state) => state.cart.error);
-  const wishlistItems = useSelector(
-    (state) => state.wishlist?.items || []
-  );
+const saveGuestOrder = (order) => {
+  try {
+    const orderId = order?._id || order?.id || order?.orderNumber;
 
-  const [product, setProduct] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [selectedSize, setSelectedSize] = useState(null);
-  const [selectedColor, setSelectedColor] = useState("");
-  const [quantity, setQuantity] = useState(1);
-  const [activeImage, setActiveImage] = useState("");
-  const [activeTab, setActiveTab] = useState("overview");
-  const [cartMessage, setCartMessage] = useState("");
-
-  const [reviews, setReviews] = useState([]);
-  const [averageRating, setAverageRating] = useState(0);
-  const [totalReviews, setTotalReviews] = useState(0);
-  const [reviewsLoading, setReviewsLoading] = useState(false);
-  const [reviewsError, setReviewsError] = useState("");
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    const loadProduct = async () => {
-      setLoading(true);
-      setError("");
-
-      try {
-        let foundProduct = null;
-
-        try {
-          const response = await fetch(
-            `${API_URL}/${encodeURIComponent(id)}`,
-            { signal: controller.signal }
-          );
-
-          if (response.ok) {
-            const data = await response.json();
-            const candidate = normalizeProduct(
-              getResponseProduct(data)
-            );
-
-            if (
-              candidate &&
-              (candidate.id === id || candidate.slug === id)
-            ) {
-              foundProduct = candidate;
-            }
-          }
-        } catch (err) {
-          if (err.name === "AbortError") throw err;
-        }
-
-        if (!foundProduct) {
-          const response = await fetch(API_URL, {
-            signal: controller.signal,
-          });
-
-          if (!response.ok) {
-            throw new Error("Products load nahi ho sake.");
-          }
-
-          const data = await response.json();
-
-          const list = Array.isArray(data)
-            ? data
-            : Array.isArray(data.products)
-              ? data.products
-              : Array.isArray(data.data)
-                ? data.data
-                : [];
-
-          const match = list.find(
-            (item) =>
-              String(item._id || item.id || "") === id ||
-              String(item.slug || "") === id
-          );
-
-          if (match) foundProduct = normalizeProduct(match);
-        }
-
-        if (!foundProduct) {
-          throw new Error("Yeh product nahi mila.");
-        }
-
-        if (!foundProduct.isActive) {
-          throw new Error("Yeh product filhal available nahi hai.");
-        }
-
-        setProduct(foundProduct);
-
-        const requestedColor = location.state?.selectedColor;
-
-        const initialColor =
-          foundProduct.colors.find(
-            (color) => color.name === requestedColor
-          )?.name ||
-          foundProduct.colors[0]?.name ||
-          foundProduct.color;
-
-        setSelectedColor(initialColor);
-        setSelectedSize(null);
-        setQuantity(1);
-        setActiveImage("");
-        setCartMessage("");
-      } catch (err) {
-        if (err.name !== "AbortError") {
-          setError(err.message || "Product load nahi ho saka.");
-        }
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    };
-
-    loadProduct();
-
-    return () => controller.abort();
-  }, [id, location.state]);
-
-  useEffect(() => {
-    if (!product?.id) {
-      setReviews([]);
-      setAverageRating(0);
-      setTotalReviews(0);
+    if (!orderId) {
+      console.warn("Order ID missing; guest order local save skipped.");
       return;
     }
 
-    const controller = new AbortController();
+    const existingOrders = JSON.parse(
+      localStorage.getItem(GUEST_ORDERS_KEY) || "[]"
+    );
 
-    const loadReviews = async () => {
-      setReviewsLoading(true);
-      setReviewsError("");
+    const orders = Array.isArray(existingOrders) ? existingOrders : [];
+
+    const savedOrder = {
+      ...order,
+      _id: order._id || order.id || order.orderNumber,
+      localSavedAt: new Date().toISOString(),
+    };
+
+    const updatedOrders = [
+      savedOrder,
+      ...orders.filter(
+        (item) =>
+          String(item?._id || item?.id || item?.orderNumber) !==
+          String(orderId)
+      ),
+    ];
+
+    localStorage.setItem(
+      GUEST_ORDERS_KEY,
+      JSON.stringify(updatedOrders)
+    );
+  } catch (error) {
+    console.error("Guest order local save failed:", error);
+  }
+};
+
+const getOrderTotal = (order, fallbackTotal) => {
+  const candidates = [
+    order?.total,
+    order?.totalAmount,
+    order?.grandTotal,
+    order?.paymentSummary?.total,
+  ];
+
+  for (const value of candidates) {
+    if (
+      value !== undefined &&
+      value !== null &&
+      value !== "" &&
+      Number.isFinite(Number(value))
+    ) {
+      return Number(value);
+    }
+  }
+
+  return fallbackTotal;
+};
+
+const StripePaymentForm = ({
+  formRef,
+  validateDelivery,
+  onPaymentSuccess,
+  loading,
+  setLoading,
+  setError,
+}) => {
+  const stripe = useStripe();
+  const elements = useElements();
+
+  const handlePayment = async () => {
+    setError("");
+
+    if (!formRef.current?.reportValidity()) return;
+    if (!validateDelivery()) return;
+
+    if (!stripe || !elements) {
+      setError("Stripe abhi load nahi hua. Dobara try karein.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { error, paymentIntent } =
+        await stripe.confirmPayment({
+          elements,
+          confirmParams: {
+            return_url: `${window.location.origin}/checkout`,
+          },
+          redirect: "if_required",
+        });
+
+      if (error) {
+        setError(error.message || "Payment complete nahi ho saki.");
+        return;
+      }
+
+      if (paymentIntent?.status !== "succeeded") {
+        setError(
+          `Payment status: ${paymentIntent?.status || "unknown"}`
+        );
+        return;
+      }
+
+      await onPaymentSuccess(paymentIntent.id);
+    } catch (err) {
+      setError(err.message || "Payment process mein error aa gaya.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="mt-5 rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
+      <div className="mb-4 flex items-center gap-2">
+        <FiCreditCard className="text-xl" />
+        <h3 className="font-semibold text-stone-900">
+          Card Payment
+        </h3>
+      </div>
+
+      <PaymentElement />
+
+      <button
+        type="button"
+        onClick={handlePayment}
+        disabled={!stripe || !elements || loading}
+        className="mt-5 w-full rounded-lg bg-black px-5 py-3.5 font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {loading ? "Processing Payment..." : "Pay Now"}
+      </button>
+
+      <p className="mt-3 text-center text-xs text-stone-500">
+        Your payment details are processed securely by Stripe.
+      </p>
+    </div>
+  );
+};
+
+const Checkout = () => {
+  const dispatch = useDispatch();
+  const formRef = useRef(null);
+
+  // Same cart ID reservations aur checkout dono use karenge.
+  const cartId = useMemo(() => getCartId(), []);
+
+  const cartItems = useSelector(
+    (state) => state.cart.items || []
+  );
+
+  const [form, setForm] = useState({
+    customerName: "",
+    email: "",
+    phone: "",
+    address: "",
+    city: "",
+  });
+
+  const [paymentMethod, setPaymentMethod] = useState("COD");
+  const [clientSecret, setClientSecret] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [intentLoading, setIntentLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [placedOrder, setPlacedOrder] = useState(null);
+  const [placedOrderTotal, setPlacedOrderTotal] = useState(null);
+
+  const items = useMemo(
+    () =>
+      cartItems.map((item) => ({
+        productId: getProductId(item),
+        title: getProductTitle(item),
+        image: getProductImage(item),
+        price: getPrice(item),
+        quantity: getQuantity(item),
+        color: item?.color || item?.selectedColor || "",
+        size: item?.size || item?.selectedSize || "",
+      })),
+    [cartItems]
+  );
+
+  const subtotal = useMemo(
+    () =>
+      items.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+      ),
+    [items]
+  );
+
+  const shipping =
+    subtotal >= FREE_SHIPPING_LIMIT ? 0 : SHIPPING_CHARGES;
+
+  const total = subtotal + shipping;
+
+  const validateDelivery = () => {
+    if (!form.customerName.trim()) {
+      setError("Apna full name enter karein.");
+      return false;
+    }
+
+    if (!form.email.trim()) {
+      setError("Email address enter karein.");
+      return false;
+    }
+
+    if (!form.phone.trim()) {
+      setError("Phone number enter karein.");
+      return false;
+    }
+
+    if (!form.address.trim()) {
+      setError("Delivery address enter karein.");
+      return false;
+    }
+
+    if (!form.city.trim()) {
+      setError("City enter karein.");
+      return false;
+    }
+
+    if (!items.length) {
+      setError("Aapka cart empty hai.");
+      return false;
+    }
+
+    if (
+      items.some(
+        (item) =>
+          !item.productId ||
+          !item.title.trim() ||
+          !Number.isInteger(item.quantity) ||
+          item.quantity < 1 ||
+          !Number.isFinite(item.price) ||
+          item.price <= 0
+      )
+    ) {
+      setError("Cart mein product information check karein.");
+      return false;
+    }
+
+    setError("");
+    return true;
+  };
+
+  // Guest aur logged-in customer dono order place kar sakte hain.
+  const createOrder = async (method, paymentIntentId = "") => {
+    const orderItems = items.map((item) => ({
+      productId: item.productId,
+      title: item.title,
+      image: item.image,
+      price: item.price,
+      quantity: item.quantity,
+      color: item.color,
+      size: item.size,
+    }));
+
+    const orderPayload = {
+      cartId,
+
+      customerName: form.customerName.trim(),
+      email: form.email.trim(),
+      phone: form.phone.trim(),
+      address: form.address.trim(),
+      city: form.city.trim(),
+
+      items: orderItems,
+
+      subtotal,
+      shipping,
+      total,
+
+      paymentMethod: method,
+
+      ...(paymentIntentId ? { paymentIntentId } : {}),
+    };
+
+    const response = await fetch(`${API_URL}/orders/place`, {
+      method: "POST",
+      headers: getGuestHeaders(),
+      body: JSON.stringify(orderPayload),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || data.ok === false) {
+      throw new Error(
+        getErrorMessage(data, "Order create nahi ho saka.")
+      );
+    }
+
+    if (!data.order) {
+      throw new Error("Backend se order confirmation nahi mili.");
+    }
+
+    saveGuestOrder(data.order);
+
+    setPlacedOrderTotal(getOrderTotal(data.order, total));
+    setPlacedOrder(data.order);
+    setClientSecret("");
+    dispatch(clearCart());
+  };
+
+  // Stripe PaymentIntent
+  useEffect(() => {
+    if (
+      paymentMethod !== "Stripe" ||
+      !total ||
+      placedOrder ||
+      !import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
+    ) {
+      setClientSecret("");
+      return;
+    }
+
+    let cancelled = false;
+
+    const createPaymentIntent = async () => {
+      setIntentLoading(true);
+      setError("");
+      setClientSecret("");
 
       try {
         const response = await fetch(
-          `${API_BASE_URL}/reviews/product/${encodeURIComponent(product.id)}`,
-          { signal: controller.signal }
+          `${API_URL}/payments/create-intent`,
+          {
+            method: "POST",
+            headers: getHeaders(),
+            body: JSON.stringify({
+              cartId,
+              items: items.map((item) => ({
+                productId: item.productId,
+                quantity: item.quantity,
+                size: item.size,
+                color: item.color,
+              })),
+            }),
+          }
         );
 
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
 
-        if (!response.ok || data?.ok === false) {
+        if (!response.ok || data.ok === false) {
           throw new Error(
-            data?.message || "Reviews load nahi ho sake."
+            getErrorMessage(
+              data,
+              "Stripe PaymentIntent create nahi hua."
+            )
           );
         }
 
-        const reviewList = Array.isArray(data.reviews)
-          ? data.reviews
-          : Array.isArray(data.data?.reviews)
-            ? data.data.reviews
-            : [];
+        if (!data.clientSecret) {
+          throw new Error("Backend se clientSecret nahi mila.");
+        }
 
-        setReviews(reviewList);
-
-        const calculatedAverage =
-          reviewList.length > 0
-            ? reviewList.reduce(
-                (sum, review) =>
-                  sum + Number(review.rating || 0),
-                0
-              ) / reviewList.length
-            : 0;
-
-        setAverageRating(
-          Number(data.averageRating ?? calculatedAverage) || 0
-        );
-
-        setTotalReviews(
-          Number(data.totalReviews ?? reviewList.length) || 0
-        );
+        if (!cancelled) {
+          setClientSecret(data.clientSecret);
+        }
       } catch (err) {
-        if (err.name !== "AbortError") {
-          setReviews([]);
-          setAverageRating(0);
-          setTotalReviews(0);
-          setReviewsError(
-            err.message || "Reviews load nahi ho sake."
-          );
+        if (!cancelled) {
+          setError(err.message || "Stripe initialize nahi hua.");
         }
       } finally {
-        if (!controller.signal.aborted) {
-          setReviewsLoading(false);
+        if (!cancelled) {
+          setIntentLoading(false);
         }
       }
     };
 
-    loadReviews();
+    createPaymentIntent();
 
-    return () => controller.abort();
-  }, [product?.id]);
+    return () => {
+      cancelled = true;
+    };
+  }, [paymentMethod, total, placedOrder, items, cartId]);
 
-  const isWishlisted = wishlistItems.some(
-    (item) =>
-      String(item._id || item.id || item.productId) ===
-      String(product?.id)
-  );
+  const handleChange = (event) => {
+    const { name, value } = event.target;
 
-  const selectedVariant = product?.colors.find(
-    (color) => color.name === selectedColor
-  );
+    setForm((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
 
-  const displayedImages = product
-    ? selectedVariant?.images?.length
-      ? selectedVariant.images
-      : product.images.length
-        ? product.images
-        : product.image
-          ? [product.image]
-          : []
-    : [];
+    if (error) setError("");
+  };
 
-  const displayImage = displayedImages.includes(activeImage)
-    ? activeImage
-    : displayedImages[0] || product?.image || "";
+  const handleCOD = async (event) => {
+    event.preventDefault();
+    setError("");
 
-  useEffect(() => {
-    setActiveImage("");
-  }, [selectedColor]);
+    if (!formRef.current?.reportValidity()) return;
+    if (!validateDelivery()) return;
 
-  const existingQuantity = cartItems
-    .filter(
-      (item) =>
-        String(item._id || item.productId || item.id) ===
-        String(product?.id)
-    )
-    .reduce(
-      (total, item) => total + Number(item.quantity || 0),
-      0
-    );
+    setLoading(true);
 
-  const remainingStock = Math.max(
-    0,
-    (product?.stock || 0) - existingQuantity
-  );
-
-  const outOfStock = remainingStock <= 0;
-
-  const selectedColorStock = selectedVariant?.stock;
-
-  if (loading) {
-    return (
-      <main className="flex min-h-[60vh] items-center justify-center bg-white">
-        <p className="text-sm text-gray-500">Loading product...</p>
-      </main>
-    );
-  }
-
-  if (error || !product) {
-    return (
-      <main className="flex min-h-[60vh] flex-col items-center justify-center gap-4 bg-white px-5 text-center">
-        <h1 className="text-2xl font-medium">Product unavailable</h1>
-        <p className="text-sm text-gray-500">
-          {error || "Product nahi mila."}
-        </p>
-        <Link
-          to="/shop"
-          className="bg-black px-6 py-3 text-sm font-semibold text-white"
-        >
-          Back to products
-        </Link>
-      </main>
-    );
-  }
-
-  const installment = Math.ceil(product.price / 3);
-
-  const handleAddToCart = () => {
-    setCartMessage("");
-    dispatch(clearCartError());
-
-    if (!product.id) {
-      setCartMessage("Product ID missing hai.");
-      return false;
+    try {
+      await createOrder("COD");
+    } catch (err) {
+      setError(err.message || "Order place nahi ho saka.");
+    } finally {
+      setLoading(false);
     }
+  };
 
-    if (remainingStock <= 0) {
-      setCartMessage("Yeh product filhal out of stock hai.");
-      return false;
-    }
-
-    if (!selectedSize) {
-      setCartMessage("Please select your shoe size first.");
-      return false;
-    }
-
-    if (quantity > remainingStock) {
-      setCartMessage(
-        `Sirf ${remainingStock} items aur available hain.`
+  const handleStripeSuccess = async (paymentIntentId) => {
+    try {
+      await createOrder("Stripe", paymentIntentId);
+    } catch (err) {
+      setError(
+        `Payment successful hai, lekin order save nahi hua. Payment ID: ${paymentIntentId}. ${err.message}`
       );
-      return false;
     }
-
-    dispatch(
-      addCartItem({
-        id: product.id,
-        productId: product.id,
-        title: product.title,
-        name: product.title,
-        price: product.price,
-        image: displayImage,
-        size: selectedSize,
-        color: selectedColor,
-        quantity,
-        stock: product.stock,
-      })
-    );
-
-    const updatedCart = store.getState().cart;
-
-    if (updatedCart.error) {
-      setCartMessage(updatedCart.error);
-      return false;
-    }
-
-    const itemExists = updatedCart.items.some(
-      (item) =>
-        String(item._id || item.productId || item.id) ===
-        String(product.id)
-    );
-
-    if (!itemExists) {
-      setCartMessage("Product cart mein add nahi hua.");
-      return false;
-    }
-
-    setCartMessage("Product added to your bag.");
-    return true;
   };
 
-  const buyNow = () => {
-    if (handleAddToCart()) navigate("/checkout");
-  };
+  // Order confirmation
+  if (placedOrder) {
+    const confirmationTotal =
+      placedOrderTotal !== null ? placedOrderTotal : total;
 
-  const visibleCartMessage = reduxCartError || cartMessage;
+    return (
+      <main className="min-h-screen bg-[#faf9f6] px-4 py-16">
+        <div className="mx-auto max-w-xl rounded-2xl bg-white p-8 text-center shadow-sm sm:p-12">
+          <FiCheckCircle className="mx-auto mb-5 text-5xl text-green-600" />
+
+          <h1 className="text-2xl font-bold text-stone-900">
+            Order Placed Successfully
+          </h1>
+
+          <p className="mt-3 text-stone-600">
+            Thank you for shopping with us.
+          </p>
+
+          {(placedOrder.orderNumber ||
+            placedOrder._id ||
+            placedOrder.id) && (
+            <p className="mt-4 text-sm text-stone-700">
+              Order ID:{" "}
+              <span className="font-semibold">
+                {placedOrder.orderNumber ||
+                  placedOrder._id ||
+                  placedOrder.id}
+              </span>
+            </p>
+          )}
+
+          <p className="mt-3 font-semibold text-stone-900">
+            Total: {formatPrice(confirmationTotal)}
+          </p>
+
+          <p className="mt-2 text-sm text-stone-500">
+            Payment Method: {placedOrder.paymentMethod || paymentMethod}
+          </p>
+
+          <p className="mt-3 text-sm text-stone-500">
+            Order confirmation email: {form.email}
+          </p>
+
+          <button
+            type="button"
+            onClick={() => (window.location.href = "/")}
+            className="mt-7 rounded-lg bg-black px-7 py-3 font-semibold text-white hover:bg-stone-800"
+          >
+            Continue Shopping
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  // Empty cart
+  if (!cartItems.length) {
+    return (
+      <main className="flex min-h-[60vh] items-center justify-center bg-[#faf9f6] px-4">
+        <div className="text-center">
+          <FiPackage className="mx-auto mb-4 text-4xl text-stone-500" />
+
+          <h1 className="text-2xl font-bold text-stone-900">
+            Your Cart Is Empty
+          </h1>
+
+          <p className="mt-2 text-stone-600">
+            Checkout karne ke liye pehle products cart mein add karein.
+          </p>
+
+          <button
+            type="button"
+            onClick={() => (window.location.href = "/shop")}
+            className="mt-5 rounded-lg bg-black px-6 py-3 text-white"
+          >
+            Shop Now
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   return (
-    <main
-      className="min-h-screen bg-white text-[#191919]"
-      style={{ fontFamily: "Arial, Helvetica, sans-serif" }}
-    >
-      <div className="mx-auto max-w-[1400px] px-4 py-5 sm:px-6 lg:px-10">
-        <nav className="mb-7 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-          <Link to="/" className="hover:text-black">
-            Home
-          </Link>
-          <span>/</span>
-          <Link to="/shop" className="hover:text-black">
-            Men
-          </Link>
-          <span>/</span>
-          <span>{product.category}</span>
-          <span>/</span>
-          <span className="text-black">{product.title}</span>
-        </nav>
+    <main className="min-h-screen bg-[#faf9f6] px-4 py-10 sm:px-6 lg:py-14">
+      <div className="mx-auto max-w-6xl">
+        <h1 className="mb-2 text-3xl font-bold text-stone-900 sm:text-4xl">
+          Checkout
+        </h1>
 
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:gap-14">
-          <section className="min-w-0">
-            <div className="relative overflow-hidden bg-[#f5f3ef]">
-              {displayImage ? (
-                <img
-                  key={displayImage}
-                  src={displayImage}
-                  alt={`${product.title} ${selectedColor}`}
-                  className="aspect-[4/4.2] w-full object-contain mix-blend-multiply"
+        <p className="mb-8 text-stone-600">
+          Delivery details enter karein aur payment method select karein.
+        </p>
+
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1.4fr_0.9fr]">
+          <form
+            ref={formRef}
+            onSubmit={handleCOD}
+            className="rounded-2xl bg-white p-5 shadow-sm sm:p-7"
+          >
+            <h2 className="mb-2 text-xl font-bold text-stone-900">
+              Delivery Information
+            </h2>
+
+            <p className="mb-5 text-sm text-stone-500">
+              You can place your order without creating an account.
+            </p>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <label
+                  htmlFor="customerName"
+                  className="mb-1.5 block text-sm font-medium text-stone-700"
+                >
+                  Full Name
+                </label>
+
+                <input
+                  id="customerName"
+                  name="customerName"
+                  type="text"
+                  autoComplete="name"
+                  value={form.customerName}
+                  onChange={handleChange}
+                  required
+                  className="w-full rounded-lg border border-stone-300 px-4 py-3 outline-none focus:border-black"
+                  placeholder="Enter your full name"
                 />
-              ) : (
-                <div className="flex aspect-[4/4.2] items-center justify-center text-sm text-gray-400">
-                  No image available for this colour
-                </div>
-              )}
+              </div>
 
-              {product.discount > 0 && (
-                <span className="absolute left-4 top-4 bg-white px-3 py-2 text-[10px] font-semibold tracking-[0.15em]">
-                  SAVE {product.discount}%
-                </span>
-              )}
+              <div>
+                <label
+                  htmlFor="email"
+                  className="mb-1.5 block text-sm font-medium text-stone-700"
+                >
+                  Email Address
+                </label>
 
-              {outOfStock && (
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  value={form.email}
+                  onChange={handleChange}
+                  required
+                  className="w-full rounded-lg border border-stone-300 px-4 py-3 outline-none focus:border-black"
+                  placeholder="you@example.com"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="phone"
+                  className="mb-1.5 block text-sm font-medium text-stone-700"
+                >
+                  Phone Number
+                </label>
+
+                <input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  autoComplete="tel"
+                  value={form.phone}
+                  onChange={handleChange}
+                  required
+                  className="w-full rounded-lg border border-stone-300 px-4 py-3 outline-none focus:border-black"
+                  placeholder="03XX XXXXXXX"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label
+                  htmlFor="address"
+                  className="mb-1.5 block text-sm font-medium text-stone-700"
+                >
+                  Complete Address
+                </label>
+
+                <textarea
+                  id="address"
+                  name="address"
+                  autoComplete="street-address"
+                  value={form.address}
+                  onChange={handleChange}
+                  required
+                  rows={3}
+                  className="w-full resize-y rounded-lg border border-stone-300 px-4 py-3 outline-none focus:border-black"
+                  placeholder="House number, street, area"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label
+                  htmlFor="city"
+                  className="mb-1.5 block text-sm font-medium text-stone-700"
+                >
+                  City
+                </label>
+
+                <input
+                  id="city"
+                  name="city"
+                  type="text"
+                  autoComplete="address-level2"
+                  value={form.city}
+                  onChange={handleChange}
+                  required
+                  className="w-full rounded-lg border border-stone-300 px-4 py-3 outline-none focus:border-black"
+                  placeholder="Enter your city"
+                />
+              </div>
+            </div>
+
+            <div className="mt-8">
+              <h2 className="mb-4 text-xl font-bold text-stone-900">
+                Payment Method
+              </h2>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <button
                   type="button"
-                  onClick={() =>
-                    dispatch(
-                      toggleWishlist({
-                        ...product,
-                        image: displayImage,
-                        selectedColor,
-                      })
-                    )
-                  }
-                  aria-label={
-                    isWishlisted
-                      ? "Remove from wishlist"
-                      : "Add to wishlist"
-                  }
-                  aria-pressed={isWishlisted}
-                  className={`absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white transition hover:bg-black hover:text-white ${
-                    isWishlisted ? "text-red-600" : ""
+                  onClick={() => {
+                    setPaymentMethod("COD");
+                    setError("");
+                  }}
+                  className={`rounded-xl border p-4 text-left transition ${
+                    paymentMethod === "COD"
+                      ? "border-black bg-stone-50"
+                      : "border-stone-200 hover:border-stone-400"
                   }`}
                 >
-                  <FiHeart
-                    className={isWishlisted ? "fill-current" : ""}
-                    size={18}
-                  />
+                  <span className="block font-semibold text-stone-900">
+                    Cash on Delivery
+                  </span>
+
+                  <span className="mt-1 block text-sm text-stone-500">
+                    Pay when your order arrives
+                  </span>
                 </button>
-              )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaymentMethod("Stripe");
+                    setError("");
+                  }}
+                  className={`rounded-xl border p-4 text-left transition ${
+                    paymentMethod === "Stripe"
+                      ? "border-black bg-stone-50"
+                      : "border-stone-200 hover:border-stone-400"
+                  }`}
+                >
+                  <span className="flex items-center gap-2 font-semibold text-stone-900">
+                    <FiCreditCard />
+                    Card Payment
+                  </span>
+
+                  <span className="mt-1 block text-sm text-stone-500">
+                    Secure payment through Stripe
+                  </span>
+                </button>
+              </div>
             </div>
 
-            {displayedImages.length > 1 && (
-              <div className="mt-3 grid grid-cols-4 gap-3">
-                {displayedImages.map((image, index) => (
-                  <button
-                    key={`${selectedColor}-${image}-${index}`}
-                    type="button"
-                    onClick={() => setActiveImage(image)}
-                    aria-label={`View ${selectedColor} image ${index + 1}`}
-                    className={`overflow-hidden border ${
-                      displayImage === image
-                        ? "border-black"
-                        : "border-transparent"
-                    } bg-[#f5f3ef]`}
-                  >
-                    <img
-                      src={image}
-                      alt={`${product.title} ${selectedColor} view ${index + 1}`}
-                      className="aspect-square w-full object-contain mix-blend-multiply"
-                    />
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <div className="mt-7 hidden border-t border-gray-200 pt-6 lg:block">
-              <h2 className="text-sm font-semibold tracking-wide">
-                PRODUCT INFORMATION
-              </h2>
-              <p className="mt-3 text-sm leading-7 text-gray-600">
-                {product.description}
-              </p>
-            </div>
-          </section>
-
-          <section className="min-w-0 lg:pt-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#8c7650]">
-              Men · {product.category}
-            </p>
-
-            <h1 className="mt-3 text-2xl font-medium leading-snug sm:text-3xl">
-              {product.title}
-            </h1>
-
-            {product.brand && (
-              <p className="mt-2 text-sm text-gray-500">
-                {product.brand}
-              </p>
-            )}
-
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <div className="flex gap-1 text-[#b69a68]">
-                {Array.from({ length: 5 }).map((_, index) => (
-                  <FiStar
-                    key={index}
-                    size={14}
-                    className={
-                      index < Math.round(averageRating)
-                        ? "fill-current"
-                        : ""
-                    }
-                  />
-                ))}
-              </div>
-              <span className="text-sm font-semibold">
-                {averageRating.toFixed(1)}
-              </span>
-              <a
-                href="#reviews"
-                className="text-sm text-gray-500 underline underline-offset-4"
+            {error && (
+              <div
+                role="alert"
+                className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"
               >
-                {totalReviews} {totalReviews === 1 ? "review" : "reviews"}
-              </a>
-            </div>
+                {error}
+              </div>
+            )}
 
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-              <span className="text-2xl font-semibold">
-                {formatPrice(product.price)}
-              </span>
-              {product.oldPrice > product.price && (
-                <>
-                  <span className="text-base text-gray-400 line-through">
-                    {formatPrice(product.oldPrice)}
-                  </span>
-                  <span className="bg-[#f1ede5] px-2 py-1 text-xs font-semibold text-[#806b48]">
-                    Save {product.discount}%
-                  </span>
-                </>
-              )}
-            </div>
+            {paymentMethod === "COD" ? (
+              <button
+                type="submit"
+                disabled={loading}
+                className="mt-6 w-full rounded-lg bg-black px-5 py-3.5 font-semibold text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {loading ? "Placing Order..." : "Place Order"}
+              </button>
+            ) : (
+              <div>
+                {!import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY && (
+                  <p className="mt-5 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+                    Frontend ki VITE_STRIPE_PUBLISHABLE_KEY configure nahi hai.
+                  </p>
+                )}
 
-            <div className="mt-5 border-y border-gray-200 py-4">
-              <p className="text-sm text-gray-600">
-                Pay in 3 installments of{" "}
-                <span className="font-semibold text-black">
-                  {formatPrice(installment)}
-                </span>
-              </p>
-              <p className="mt-1 text-xs text-gray-500">
-                Availability depends on your payment provider.
-              </p>
-            </div>
+                {intentLoading && (
+                  <p className="mt-5 text-sm text-stone-600">
+                    Secure payment form load ho raha hai...
+                  </p>
+                )}
 
-            {product.colors.length > 0 && (
-              <div className="mt-6">
-                <p className="text-sm font-semibold">
-                  Colour{" "}
-                  <span className="font-normal">
-                    — {selectedColor.toUpperCase()}
-                  </span>
-                </p>
-
-                <div className="mt-4 flex flex-wrap gap-3">
-                  {product.colors.map((color) => (
-                    <button
-                      key={color.name}
-                      type="button"
-                      onClick={() => {
-                        setSelectedColor(color.name);
-                        setActiveImage("");
-                        setCartMessage("");
-                        dispatch(clearCartError());
+                {clientSecret &&
+                  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY && (
+                    <Elements
+                      stripe={stripePromise}
+                      options={{
+                        clientSecret,
+                        appearance: {
+                          theme: "stripe",
+                          variables: {
+                            colorPrimary: "#191919",
+                            borderRadius: "8px",
+                          },
+                        },
                       }}
-                      aria-label={`Select ${color.name}`}
-                      aria-pressed={selectedColor === color.name}
-                      title={color.name}
-                      className={`h-11 w-11 rounded-full border p-1 ${
-                        selectedColor === color.name
-                          ? "border-black"
-                          : "border-gray-200"
-                      }`}
                     >
-                      <span
-                        className="block h-full w-full rounded-full border border-black/10"
-                        style={{ backgroundColor: color.value }}
+                      <StripePaymentForm
+                        formRef={formRef}
+                        validateDelivery={validateDelivery}
+                        onPaymentSuccess={handleStripeSuccess}
+                        loading={loading}
+                        setLoading={setLoading}
+                        setError={setError}
                       />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="mt-7">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold">
-                  Select size <span className="font-normal">(EU)</span>
-                </p>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setActiveTab((tab) => (tab === "size" ? "" : "size"))
-                  }
-                  className="text-xs underline underline-offset-4"
-                >
-                  Size guide
-                </button>
-              </div>
-
-              <div className="mt-3 grid grid-cols-6 gap-2">
-                {product.sizes.map((size) => (
-                  <button
-                    key={size}
-                    type="button"
-                    onClick={() => {
-                      setSelectedSize(size);
-                      setCartMessage("");
-                      dispatch(clearCartError());
-                    }}
-                    className={`flex h-12 items-center justify-center border text-sm transition ${
-                      selectedSize === size
-                        ? "border-black bg-black text-white"
-                        : "border-gray-300 hover:border-black"
-                    }`}
-                  >
-                    {size}
-                  </button>
-                ))}
-              </div>
-
-              {activeTab === "size" && (
-                <div className="mt-4 bg-[#f7f5f1] p-4 text-sm">
-                  <p className="font-semibold">Size guide</p>
-                  <p className="mt-2 leading-6 text-gray-600">
-                    Select your usual EU shoe size. If you are between sizes,
-                    check the product measurements before ordering.
-                  </p>
-                </div>
-              )}
-
-              <p className="mt-3 flex items-center gap-2 text-xs text-gray-500">
-                <FiCheck size={15} className="text-green-700" />
-                {outOfStock
-                  ? "Yeh product out of stock hai."
-                  : `${remainingStock} items available`}
-              </p>
-            </div>
-
-            <div className="mt-6 flex flex-wrap items-center gap-4">
-              <span className="text-sm font-medium">Quantity</span>
-              <div className="flex h-11 items-center border border-gray-300">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setQuantity((value) => Math.max(1, value - 1))
-                  }
-                  disabled={quantity <= 1}
-                  aria-label="Decrease quantity"
-                  className="flex h-full w-10 items-center justify-center disabled:opacity-40"
-                >
-                  <FiMinus size={14} />
-                </button>
-                <span className="w-8 text-center text-sm">{quantity}</span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setQuantity((value) =>
-                      Math.min(remainingStock, value + 1)
-                    )
-                  }
-                  disabled={quantity >= remainingStock || outOfStock}
-                  aria-label="Increase quantity"
-                  className="flex h-full w-10 items-center justify-center disabled:opacity-40"
-                >
-                  <FiPlus size={14} />
-                </button>
-              </div>
-            </div>
-
-            {visibleCartMessage && (
-              <p
-                role="status"
-                className={`mt-4 p-3 text-sm ${
-                  visibleCartMessage.toLowerCase().includes("added")
-                    ? "bg-green-50 text-green-700"
-                    : "bg-red-50 text-red-600"
-                }`}
-              >
-                {visibleCartMessage}
-              </p>
-            )}
-
-            {/* Out of stock: Wishlist option */}
-            <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {outOfStock ? (
-                <>
-                  <button
-                    type="button"
-                    disabled
-                    className="flex min-h-12 cursor-not-allowed items-center justify-center gap-3 bg-gray-400 px-5 py-3 text-sm font-semibold text-white"
-                  >
-                    <FiShoppingBag size={17} />
-                    Out of stock
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      dispatch(
-                        toggleWishlist({
-                          ...product,
-                          image: displayImage,
-                          selectedColor,
-                        })
-                      )
-                    }
-                    className={`flex min-h-12 items-center justify-center gap-3 border px-5 py-3 text-sm font-semibold transition ${
-                      isWishlisted
-                        ? "border-red-600 bg-red-50 text-red-600"
-                        : "border-black text-black hover:bg-[#f5f3ef]"
-                    }`}
-                  >
-                    <FiHeart
-                      size={17}
-                      className={isWishlisted ? "fill-current" : ""}
-                    />
-                    {isWishlisted
-                      ? "Remove from wishlist"
-                      : "Add to wishlist"}
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleAddToCart}
-                    className="flex min-h-12 items-center justify-center gap-3 bg-black px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#333]"
-                  >
-                    <FiShoppingBag size={17} />
-                    Add to bag
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={buyNow}
-                    className="min-h-12 border border-black px-5 py-3 text-sm font-semibold transition hover:bg-[#f5f3ef]"
-                  >
-                    Buy now
-                  </button>
-                </>
-              )}
-            </div>
-
-            <p className="mt-3 text-center text-xs text-gray-500">
-              Secure checkout · Cash on Delivery available
-            </p>
-
-            <div className="mt-8 grid grid-cols-3 gap-3 border-y border-gray-200 py-5">
-              <div className="flex flex-col items-center text-center">
-                <FiTruck size={21} />
-                <p className="mt-3 text-xs font-semibold">Fast delivery</p>
-                <p className="mt-1 text-[11px] leading-5 text-gray-500">
-                  2–5 working days
-                </p>
-              </div>
-              <div className="flex flex-col items-center text-center">
-                <FiRefreshCw size={21} />
-                <p className="mt-3 text-xs font-semibold">Easy exchange</p>
-                <p className="mt-1 text-[11px] leading-5 text-gray-500">
-                  Subject to policy
-                </p>
-              </div>
-              <div className="flex flex-col items-center text-center">
-                <FiShield size={21} />
-                <p className="mt-3 text-xs font-semibold">Secure payment</p>
-                <p className="mt-1 text-[11px] leading-5 text-gray-500">
-                  COD available
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <button
-                type="button"
-                onClick={() =>
-                  setActiveTab((tab) =>
-                    tab === "overview" ? "" : "overview"
-                  )
-                }
-                className="flex w-full items-center justify-between border-b border-gray-200 py-5 text-left"
-              >
-                <span className="text-sm font-semibold">Overview</span>
-                <span className="text-xl font-light">
-                  {activeTab === "overview" ? "−" : "+"}
-                </span>
-              </button>
-
-              {activeTab === "overview" && (
-                <div className="border-b border-gray-200 py-5">
-                  <h2 className="text-base font-semibold">
-                    {product.title}
-                  </h2>
-                  <p className="mt-3 text-sm leading-7 text-gray-600">
-                    {product.description}
-                  </p>
-
-                  {product.features.length > 0 && (
-                    <>
-                      <h3 className="mt-5 text-sm font-semibold">
-                        Key features
-                      </h3>
-                      <ul className="mt-3 space-y-3">
-                        {product.features.map((feature, index) => (
-                          <li key={`${feature.title}-${index}`}>
-                            <p className="text-sm font-medium">
-                              {feature.title}
-                            </p>
-                            {feature.description && (
-                              <p className="mt-1 text-sm leading-6 text-gray-500">
-                                {feature.description}
-                              </p>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    </>
+                    </Elements>
                   )}
-                </div>
-              )}
+              </div>
+            )}
+          </form>
 
-              <button
-                type="button"
-                onClick={() =>
-                  setActiveTab((tab) =>
-                    tab === "materials" ? "" : "materials"
-                  )
-                }
-                className="flex w-full items-center justify-between border-b border-gray-200 py-5 text-left"
-              >
-                <span className="text-sm font-semibold">Materials & care</span>
-                <span className="text-xl font-light">
-                  {activeTab === "materials" ? "−" : "+"}
-                </span>
-              </button>
+          {/* Order Summary */}
+          <aside className="h-fit rounded-2xl bg-white p-5 shadow-sm sm:p-7">
+            <h2 className="mb-5 text-xl font-bold text-stone-900">
+              Order Summary
+            </h2>
 
-              {activeTab === "materials" && (
-                <div className="border-b border-gray-200 py-5 text-sm leading-7 text-gray-600">
-                  {product.description}
-                  <p className="mt-2">
-                    Clean gently with a soft cloth and allow shoes to air dry.
-                    Check the product label for exact material details.
+            <div className="max-h-80 space-y-4 overflow-y-auto">
+              {items.map((item, index) => (
+                <div
+                  key={`${item.productId}-${index}`}
+                  className="flex gap-3"
+                >
+                  {item.image ? (
+                    <img
+                      src={item.image}
+                      alt={item.title}
+                      className="h-20 w-20 rounded-lg bg-stone-100 object-contain"
+                    />
+                  ) : (
+                    <div className="flex h-20 w-20 items-center justify-center rounded-lg bg-stone-100">
+                      <FiPackage className="text-2xl text-stone-400" />
+                    </div>
+                  )}
+
+                  <div className="min-w-0 flex-1">
+                    <h3 className="line-clamp-2 font-medium text-stone-900">
+                      {item.title}
+                    </h3>
+
+                    {item.color && (
+                      <p className="mt-1 text-xs text-stone-500">
+                        Color: {item.color}
+                      </p>
+                    )}
+
+                    {item.size && (
+                      <p className="text-xs text-stone-500">
+                        Size: {item.size}
+                      </p>
+                    )}
+
+                    <p className="mt-1 text-sm text-stone-500">
+                      Quantity: {item.quantity}
+                    </p>
+                  </div>
+
+                  <p className="whitespace-nowrap text-sm font-semibold text-stone-900">
+                    {formatPrice(item.price * item.quantity)}
                   </p>
                 </div>
-              )}
-
-              <button
-                type="button"
-                onClick={() =>
-                  setActiveTab((tab) =>
-                    tab === "delivery" ? "" : "delivery"
-                  )
-                }
-                className="flex w-full items-center justify-between border-b border-gray-200 py-5 text-left"
-              >
-                <span className="text-sm font-semibold">Delivery & returns</span>
-                <span className="text-xl font-light">
-                  {activeTab === "delivery" ? "−" : "+"}
-                </span>
-              </button>
-
-              {activeTab === "delivery" && (
-                <div className="border-b border-gray-200 py-5 text-sm leading-7 text-gray-600">
-                  <p>
-                    Estimated delivery is 2–5 working days across Pakistan.
-                    Delivery times can vary by location.
-                  </p>
-                  <p className="mt-2">
-                    Cash on Delivery is subject to service availability.
-                    Exchanges are subject to your store policy.
-                  </p>
-                </div>
-              )}
+              ))}
             </div>
 
-            <div id="reviews" className="mt-8 border-t border-gray-200 pt-6">
-              <h2 className="text-lg font-medium">Customer reviews</h2>
-
-              <div className="mt-4 flex items-center gap-3">
-                <span className="text-3xl font-semibold">
-                  {averageRating.toFixed(1)}
-                </span>
-
-                <div>
-                  <div className="flex gap-1 text-[#b69a68]">
-                    {Array.from({ length: 5 }).map((_, index) => (
-                      <FiStar
-                        key={index}
-                        size={15}
-                        className={
-                          index < Math.round(averageRating)
-                            ? "fill-current"
-                            : ""
-                        }
-                      />
-                    ))}
-                  </div>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Based on {totalReviews}{" "}
-                    {totalReviews === 1 ? "review" : "reviews"}
-                  </p>
-                </div>
+            <div className="mt-6 space-y-3 border-t border-stone-200 pt-5">
+              <div className="flex justify-between text-sm text-stone-600">
+                <span>Subtotal</span>
+                <span>{formatPrice(subtotal)}</span>
               </div>
 
-              {reviewsLoading ? (
-                <p className="mt-6 text-sm text-gray-500">
-                  Loading customer reviews...
+              <div className="flex justify-between text-sm text-stone-600">
+                <span>Shipping</span>
+                <span>
+                  {shipping === 0 ? "Free" : formatPrice(shipping)}
+                </span>
+              </div>
+
+              {subtotal < FREE_SHIPPING_LIMIT && (
+                <p className="text-xs text-stone-500">
+                  {formatPrice(FREE_SHIPPING_LIMIT - subtotal)} more ki
+                  shopping par free shipping.
                 </p>
-              ) : reviewsError ? (
-                <p role="status" className="mt-6 text-sm text-red-600">
-                  {reviewsError}
-                </p>
-              ) : reviews.length === 0 ? (
-                <div className="mt-6 border-t border-gray-200 py-6">
-                  <p className="text-sm font-medium">No reviews yet</p>
-                  <p className="mt-2 text-sm leading-6 text-gray-500">
-                    Is product ka review abhi available nahi hai. Delivered
-                    order ke customers apna review submit kar sakte hain.
-                  </p>
-                </div>
-              ) : (
-                <div className="mt-6 divide-y divide-gray-200 border-t border-gray-200">
-                  {reviews.map((review, index) => {
-                    const reviewId =
-                      review._id || `${review.createdAt}-${index}`;
-
-                    return (
-                      <article key={reviewId} className="py-5">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <p className="text-sm font-semibold">
-                            {review.customerName || "Verified customer"}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {review.createdAt &&
-                              new Date(review.createdAt).toLocaleDateString(
-                                "en-PK",
-                                {
-                                  day: "numeric",
-                                  month: "short",
-                                  year: "numeric",
-                                }
-                              )}
-                          </p>
-                        </div>
-
-                        <div
-                          className="mt-2 flex gap-1 text-[#b69a68]"
-                          aria-label={`${Number(review.rating) || 0} out of 5 stars`}
-                        >
-                          {Array.from({ length: 5 }).map((_, starIndex) => (
-                            <FiStar
-                              key={starIndex}
-                              size={14}
-                              className={
-                                starIndex < Number(review.rating || 0)
-                                  ? "fill-current"
-                                  : ""
-                              }
-                            />
-                          ))}
-                        </div>
-
-                        <p className="mt-3 whitespace-pre-line text-sm leading-7 text-gray-600">
-                          {review.comment}
-                        </p>
-                      </article>
-                    );
-                  })}
-                </div>
               )}
+
+              <div className="flex justify-between border-t border-stone-200 pt-4 text-lg font-bold text-stone-900">
+                <span>Total</span>
+                <span>{formatPrice(total)}</span>
+              </div>
             </div>
-          </section>
+
+            <p className="mt-5 text-xs leading-5 text-stone-500">
+              Shipping charges aur final amount order place karne se pehle
+              check kar lein.
+            </p>
+          </aside>
         </div>
       </div>
     </main>
   );
-}
+};
+
+export default Checkout;

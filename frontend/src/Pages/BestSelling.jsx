@@ -143,7 +143,7 @@ export default function BestSelling() {
                       {formatPrice(product.price)}
                     </span>
 
-                    <span className="text-[11px] text-gray-400 line-through sm:text-xs">
+                    <span className="text-[11px] text-gray-600 line-through sm:text-xs">
                       {formatPrice(product.oldPrice)}
                     </span>
                   </div>

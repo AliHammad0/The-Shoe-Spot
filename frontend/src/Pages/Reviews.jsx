@@ -79,15 +79,20 @@ const reviews = [
 
 function Stars() {
   return (
-    <div className="flex items-center gap-1" aria-label="5 star visual rating">
+    <span
+      className="flex items-center gap-1"
+      role="img"
+      aria-label="5 out of 5 stars"
+    >
       {[1, 2, 3, 4, 5].map((star) => (
         <FiStar
           key={star}
+          aria-hidden="true"
           className="fill-[#C6A66B] text-[#C6A66B]"
           size={13}
         />
       ))}
-    </div>
+    </span>
   );
 }
 
@@ -96,28 +101,34 @@ function ReviewCard({ review }) {
     <article className="group flex h-full min-h-[265px] flex-col rounded-2xl border border-[#e9e5df] bg-white p-5 transition-all duration-300 hover:-translate-y-1 hover:border-[#c6a66b]/60 hover:shadow-[0_18px_45px_rgba(30,25,18,0.07)] sm:p-6">
       <div className="mb-6 flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#f2eee7] text-xs font-bold tracking-wide text-[#65533a]">
+          <div
+            aria-hidden="true"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#f2eee7] text-xs font-bold tracking-wide text-[#65533a]"
+          >
             {review.initials}
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold text-[#191919]">
+            <p className="text-sm font-semibold text-[#191919]">
               {review.name}
-            </h3>
+            </p>
             <p className="mt-1 text-xs text-[#92908b]">{review.time}</p>
           </div>
         </div>
 
-        <span className="rounded-full border border-[#e8e4dc] p-2 text-[#a08a64] transition-colors group-hover:bg-[#f7f3ec]">
+        <span
+          aria-hidden="true"
+          className="rounded-full border border-[#e8e4dc] p-2 text-[#a08a64] transition-colors group-hover:bg-[#f7f3ec]"
+        >
           <FiArrowUpRight size={15} />
         </span>
       </div>
 
       <Stars />
 
-      <h4 className="mt-4 text-[17px] font-semibold tracking-[-0.3px] text-[#202020]">
+      <h3 className="mt-4 text-[17px] font-semibold tracking-[-0.3px] text-[#202020]">
         {review.title}
-      </h4>
+      </h3>
 
       <p className="mt-2 flex-1 text-sm leading-7 text-[#66645f]">
         “{review.review}”
@@ -180,7 +191,9 @@ export default function Reviews() {
       setActiveIndex(closestIndex);
     };
 
-    slider.addEventListener("scroll", updateActiveIndex, { passive: true });
+    slider.addEventListener("scroll", updateActiveIndex, {
+      passive: true,
+    });
 
     return () => {
       slider.removeEventListener("scroll", updateActiveIndex);
@@ -211,15 +224,23 @@ export default function Reviews() {
   }, []);
 
   return (
-    <main
+    <section
+      aria-labelledby="customer-reviews-heading"
       className="min-h-screen bg-[#faf9f6] px-4 py-14 text-[#191919] sm:px-6 sm:py-20 lg:px-10 lg:py-24"
       style={{ fontFamily: "Arial, Helvetica, sans-serif" }}
     >
-      <section className="mx-auto max-w-7xl">
+      <div className="mx-auto max-w-7xl">
+        <h2 id="customer-reviews-heading" className="sr-only">
+          Customer Reviews
+        </h2>
+
         <div className="mb-10 flex flex-col gap-7 border-b border-[#e8e4dc] pb-9 sm:mb-12 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="mb-5 flex items-center gap-2">
-              <span className="h-px w-8 bg-[#b49a6a]" />
+              <span
+                aria-hidden="true"
+                className="h-px w-8 bg-[#b49a6a]"
+              />
               <span className="text-[10px] font-bold uppercase tracking-[3px] text-[#8b7755]">
                 Customer stories
               </span>
@@ -239,10 +260,17 @@ export default function Reviews() {
               </p>
             </div>
 
-            <div className="h-10 w-px bg-[#e8e4dc]" />
+            <div
+              aria-hidden="true"
+              className="h-10 w-px bg-[#e8e4dc]"
+            />
 
             <div>
-              <FiCheckCircle className="mb-2 text-[#a08a64]" size={19} />
+              <FiCheckCircle
+                aria-hidden="true"
+                className="mb-2 text-[#a08a64]"
+                size={19}
+              />
               <p className="text-xs font-semibold text-[#4b493f]">
                 Real feedback
               </p>
@@ -280,6 +308,7 @@ export default function Reviews() {
                 type="button"
                 onClick={() => scrollToReview(index)}
                 aria-label={`Go to review ${index + 1}`}
+                aria-current={activeIndex === index ? "true" : undefined}
                 className={`h-1.5 rounded-full transition-all duration-300 ${
                   activeIndex === index
                     ? "w-7 bg-[#9b825a]"
@@ -298,7 +327,7 @@ export default function Reviews() {
             Customer feedback
           </p>
         </div>
-      </section>
-    </main>
+      </div>
+    </section>
   );
 }

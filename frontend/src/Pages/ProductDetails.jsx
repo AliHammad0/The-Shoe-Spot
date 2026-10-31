@@ -765,7 +765,7 @@ export default function ProductDetails() {
               </span>
               {product.oldPrice > product.price && (
                 <>
-                  <span className="text-base text-gray-400 line-through">
+                  <span className="text-base text-gray-600 line-through">
                     {formatPrice(product.oldPrice)}
                   </span>
                   <span className="bg-[#f1ede5] px-2 py-1 text-xs font-semibold text-[#806b48]">

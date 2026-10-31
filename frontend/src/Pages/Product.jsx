@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { FiChevronDown, FiSliders } from "react-icons/fi";
@@ -340,7 +341,7 @@ export default function Product() {
                       </span>
 
                       {product.oldPrice > product.price && (
-                        <span className="text-[11px] text-gray-400 line-through sm:text-xs">
+                        <span className="text-[11px] text-gray-600 line-through sm:text-xs">
                           {formatPrice(product.oldPrice)}
                         </span>
                       )}
