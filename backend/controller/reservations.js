@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import Product from "../model/products.js";
+import Product from "../model/reservation.js";
 import Reservation from "../model/reservation.js";
 
 const RESERVATION_MINUTES = 15;

@@ -19,7 +19,7 @@ import {
 } from "../redux/slices/cartSlice";
 import { toggleWishlist } from "../redux/slices/wishlistSlice.js";
 import { store } from "../redux/store.js";
-import getCartId from "../utils/cartId";
+import { getCartId } from "../utils/cartId";
 const API_BASE_URL =
   "https://the-shoe-spot-backend.vercel.app/api/v1";
 const API_URL = `${API_BASE_URL}/products`;
