@@ -110,7 +110,7 @@ export default function Category() {
                 >
                   <img
                     src={category.image}
-                    alt={category.name}
+                    alt=""
                     loading="lazy"
                     className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />
