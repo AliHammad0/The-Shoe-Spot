@@ -8,7 +8,11 @@ import {
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js";
-import { FiCheckCircle, FiCreditCard, FiPackage } from "react-icons/fi";
+import {
+  FiCheckCircle,
+  FiCreditCard,
+  FiPackage,
+} from "react-icons/fi";
 import { clearCart } from "../redux/slices/cartSlice";
 
 const API_URL =
@@ -54,19 +58,22 @@ const getProductImage = (product) =>
   product?.product?.images?.[0] ||
   "";
 
-const getToken = () =>
-  localStorage.getItem("token") ||
-  localStorage.getItem("accessToken") ||
-  "";
-
 const getHeaders = () => {
-  const token = getToken();
+  const token =
+    localStorage.getItem("token") ||
+    localStorage.getItem("accessToken") ||
+    "";
 
   return {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 };
+
+// Guest orders do not require authentication.
+const getGuestHeaders = () => ({
+  "Content-Type": "application/json",
+});
 
 const formatPrice = (amount) =>
   new Intl.NumberFormat("en-PK", {
@@ -115,24 +122,24 @@ const StripePaymentForm = ({
     setError("");
 
     if (!formRef.current?.reportValidity()) return;
+    if (!validateDelivery()) return;
 
     if (!stripe || !elements) {
       setError("Stripe abhi load nahi hua. Dobara try karein.");
       return;
     }
 
-    if (!validateDelivery()) return;
-
     setLoading(true);
 
     try {
-      const { error, paymentIntent } = await stripe.confirmPayment({
-        elements,
-        confirmParams: {
-          return_url: `${window.location.origin}/checkout`,
-        },
-        redirect: "if_required",
-      });
+      const { error, paymentIntent } =
+        await stripe.confirmPayment({
+          elements,
+          confirmParams: {
+            return_url: `${window.location.origin}/checkout`,
+          },
+          redirect: "if_required",
+        });
 
       if (error) {
         setError(error.message || "Payment complete nahi ho saki.");
@@ -141,7 +148,7 @@ const StripePaymentForm = ({
 
       if (paymentIntent?.status !== "succeeded") {
         setError(
-          `Payment status: ${paymentIntent?.status || "unknown"}. Payment abhi successful confirm nahi hui.`
+          `Payment status: ${paymentIntent?.status || "unknown"}`
         );
         return;
       }
@@ -158,7 +165,9 @@ const StripePaymentForm = ({
     <div className="mt-5 rounded-xl border border-stone-200 bg-white p-4 sm:p-5">
       <div className="mb-4 flex items-center gap-2">
         <FiCreditCard className="text-xl" />
-        <h3 className="font-semibold text-stone-900">Card Payment</h3>
+        <h3 className="font-semibold text-stone-900">
+          Card Payment
+        </h3>
       </div>
 
       <PaymentElement />
@@ -183,7 +192,9 @@ const Checkout = () => {
   const dispatch = useDispatch();
   const formRef = useRef(null);
 
-  const cartItems = useSelector((state) => state.cart.items || []);
+  const cartItems = useSelector(
+    (state) => state.cart.items || []
+  );
 
   const [form, setForm] = useState({
     customerName: "",
@@ -211,6 +222,8 @@ const Checkout = () => {
         quantity: getQuantity(item),
         color: item?.color || item?.selectedColor || "",
         size: item?.size || item?.selectedSize || "",
+        reservations: item?.reservations || [],
+        reservationId: item?.reservationId || "",
       })),
     [cartItems]
   );
@@ -278,20 +291,47 @@ const Checkout = () => {
     return true;
   };
 
+  // Backend guest order payload
   const createOrder = async (method, paymentIntentId = "") => {
-    const response = await fetch(`${API_URL}/orders`, {
-      method: "POST",
-      headers: getHeaders(),
-      body: JSON.stringify({
-        ...form,
-        items,
-        subtotal,
-        shipping,
-        total,
-        paymentMethod: method,
-        ...(paymentIntentId ? { paymentIntentId } : {}),
-      }),
-    });
+    const nameParts = form.customerName.trim().split(/\s+/);
+
+    const firstname = nameParts[0];
+    const lastname = nameParts.slice(1).join(" ") || firstname;
+
+    const orderItems = items.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      size: item.size,
+      color: item.color,
+      ...(item.reservations.length
+        ? { reservations: item.reservations }
+        : {}),
+      ...(item.reservationId
+        ? { reservationId: item.reservationId }
+        : {}),
+    }));
+
+    const orderPayload = {
+      firstname,
+      lastname,
+      email: form.email.trim(),
+      phone: form.phone.trim(),
+      address: form.address.trim(),
+      city: form.city.trim(),
+      items: orderItems,
+      paymentMethod: method,
+      ...(paymentIntentId ? { paymentIntentId } : {}),
+    };
+
+    // Correct guest order endpoint: /orders/place
+    const response = await fetch(
+      `${API_URL}/orders/place`,
+      {
+        method: "POST",
+        headers: getGuestHeaders(),
+        body: JSON.stringify(orderPayload),
+      }
+    );
 
     const data = await response.json().catch(() => ({}));
 
@@ -309,6 +349,7 @@ const Checkout = () => {
     dispatch(clearCart());
   };
 
+  // Stripe PaymentIntent
   useEffect(() => {
     if (
       paymentMethod !== "Stripe" ||
@@ -355,7 +396,7 @@ const Checkout = () => {
 
         if (!data.clientSecret) {
           throw new Error(
-            "Backend se clientSecret nahi mila. Payment API check karein."
+            "Backend se clientSecret nahi mila."
           );
         }
 
@@ -419,6 +460,7 @@ const Checkout = () => {
     }
   };
 
+  // Order confirmation
   if (placedOrder) {
     const confirmationTotal =
       placedOrderTotal !== null ? placedOrderTotal : total;
@@ -457,6 +499,10 @@ const Checkout = () => {
             Payment Method: {placedOrder.paymentMethod || paymentMethod}
           </p>
 
+          <p className="mt-3 text-sm text-stone-500">
+            Order confirmation email: {form.email}
+          </p>
+
           <button
             type="button"
             onClick={() => (window.location.href = "/")}
@@ -469,6 +515,7 @@ const Checkout = () => {
     );
   }
 
+  // Empty cart
   if (!cartItems.length) {
     return (
       <main className="flex min-h-[60vh] items-center justify-center bg-[#faf9f6] px-4">
@@ -512,9 +559,13 @@ const Checkout = () => {
             onSubmit={handleCOD}
             className="rounded-2xl bg-white p-5 shadow-sm sm:p-7"
           >
-            <h2 className="mb-5 text-xl font-bold text-stone-900">
+            <h2 className="mb-2 text-xl font-bold text-stone-900">
               Delivery Information
             </h2>
+
+            <p className="mb-5 text-sm text-stone-500">
+              You can place your order without creating an account.
+            </p>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
@@ -734,6 +785,7 @@ const Checkout = () => {
             )}
           </form>
 
+          {/* Order Summary */}
           <aside className="h-fit rounded-2xl bg-white p-5 shadow-sm sm:p-7">
             <h2 className="mb-5 text-xl font-bold text-stone-900">
               Order Summary
@@ -749,7 +801,7 @@ const Checkout = () => {
                     <img
                       src={item.image}
                       alt={item.title}
-                      className="h-20 w-20 rounded-lg bg-stone-100 object-cover"
+                      className="h-20 w-20 rounded-lg bg-stone-100 object-contain"
                     />
                   ) : (
                     <div className="flex h-20 w-20 items-center justify-center rounded-lg bg-stone-100">
