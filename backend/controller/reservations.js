@@ -1,5 +1,6 @@
+
 import mongoose from "mongoose";
-import Product from "../model/reservation.js";
+import Product from "../model/products.js";
 import Reservation from "../model/reservation.js";
 
 const RESERVATION_MINUTES = 15;
@@ -8,9 +9,6 @@ const getExpiryDate = () =>
   new Date(Date.now() + RESERVATION_MINUTES * 60 * 1000);
 
 const normalizeOption = (value) => String(value || "").trim();
-
-const isValidQuantity = (quantity) =>
-  Number.isInteger(quantity) && quantity >= 0;
 
 // Reserve product stock
 export const reserveStock = async (req, res) => {
@@ -91,14 +89,7 @@ export const reserveStock = async (req, res) => {
 
       const expiresAt = getExpiryDate();
 
-      if (quantity === 0) {
-        if (existingReservation) {
-          await Reservation.deleteOne(
-            { _id: existingReservation._id },
-            { session }
-          );
-        }
-      } else if (existingReservation) {
+      if (existingReservation) {
         existingReservation.quantity = quantity;
         existingReservation.expiresAt = expiresAt;
         await existingReservation.save({ session });
@@ -255,7 +246,6 @@ export const releaseCartStock = async (req, res) => {
 };
 
 // Restore expired reservations
-// Restore expired reservations
 export const cleanupExpiredReservations = async () => {
   const session = await mongoose.startSession();
 
@@ -293,4 +283,4 @@ export const cleanupExpiredReservations = async () => {
   } finally {
     await session.endSession();
   }
-};;
+};
