@@ -1,4 +1,3 @@
-
 import express from "express";
 import {
   createOrder,
@@ -15,7 +14,10 @@ import {
 
 const ordersRouter = express.Router();
 
-// Order placement
+// Guest aur logged-in customer dono order place kar sakte hain
+ordersRouter.post("/place", createOrder);
+
+// Existing authenticated order route
 ordersRouter.post("/", authMiddleware, createOrder);
 
 // Customer ke apne orders
@@ -32,7 +34,7 @@ ordersRouter.patch(
   updateOrderStatus
 );
 
-// Order aur uske linked reviews delete
+// Order aur linked reviews delete
 ordersRouter.delete(
   "/:id",
   authMiddleware,
