@@ -1,4 +1,3 @@
-
 import mongoose from "mongoose";
 import Stripe from "stripe";
 import Order from "../model/order.js";
@@ -60,7 +59,6 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    // Checkout se product ya productId dono formats accept karein.
     const orderItems = items.map((item) => ({
       product: item.product || item.productId,
       title: item.title,
@@ -137,7 +135,6 @@ export const createOrder = async (req, res) => {
         });
       }
 
-      // Guest checkout ko allow karein; authenticated payments verify hon.
       const metadataUserId = paymentIntent.metadata?.userId;
       const currentUserId = String(
         req.user?.userId ||
@@ -166,7 +163,6 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    // Ek PaymentIntent ke against duplicate order create na karein.
     if (verifiedPaymentIntentId) {
       const existingOrder = await Order.findOne({
         paymentIntentId: verifiedPaymentIntentId,
@@ -268,6 +264,52 @@ export const createOrder = async (req, res) => {
     });
   } finally {
     await session.endSession();
+  }
+};
+
+// Guest aur registered customer dono Order Number + Email se order track kar sakte hain.
+export const trackOrder = async (req, res) => {
+  try {
+    const { orderId, email } = req.body;
+
+    if (!orderId || !email) {
+      return res.status(400).json({
+        ok: false,
+        message: "Order number and email are required.",
+      });
+    }
+
+    if (!mongoose.isValidObjectId(orderId.trim())) {
+      return res.status(400).json({
+        ok: false,
+        message: "Invalid order number.",
+      });
+    }
+
+    const order = await Order.findOne({
+      _id: orderId.trim(),
+      email: email.trim().toLowerCase(),
+    }).populate("items.product");
+
+    if (!order) {
+      return res.status(404).json({
+        ok: false,
+        message:
+          "Order not found. Please check your order number and email.",
+      });
+    }
+
+    return res.status(200).json({
+      ok: true,
+      order,
+    });
+  } catch (error) {
+    console.error("Track order error:", error);
+
+    return res.status(500).json({
+      ok: false,
+      message: "Failed to track order.",
+    });
   }
 };
 

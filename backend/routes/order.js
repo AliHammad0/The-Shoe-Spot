@@ -1,10 +1,12 @@
 import express from "express";
+
 import {
   createOrder,
   getMyOrders,
   getAllOrders,
   updateOrderStatus,
   deleteOrder,
+  trackOrder,
 } from "../controller/order.js";
 
 import {
@@ -14,19 +16,19 @@ import {
 
 const ordersRouter = express.Router();
 
-// Guest aur logged-in customer dono order place kar sakte hain
+// Guest order placement
 ordersRouter.post("/place", createOrder);
 
-// Existing authenticated order route
-ordersRouter.post("/", authMiddleware, createOrder);
+// Guest order tracking
+ordersRouter.post("/track", trackOrder);
 
-// Customer ke apne orders
+// Registered customer orders
+ordersRouter.post("/", authMiddleware, createOrder);
 ordersRouter.get("/my-orders", authMiddleware, getMyOrders);
 
 // Admin orders management
 ordersRouter.get("/", authMiddleware, adminMiddleware, getAllOrders);
 
-// Order status update
 ordersRouter.patch(
   "/:id/status",
   authMiddleware,
@@ -34,7 +36,6 @@ ordersRouter.patch(
   updateOrderStatus
 );
 
-// Order aur linked reviews delete
 ordersRouter.delete(
   "/:id",
   authMiddleware,

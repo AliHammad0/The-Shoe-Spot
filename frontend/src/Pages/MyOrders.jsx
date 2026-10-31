@@ -7,10 +7,23 @@ const MyOrders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
   const [reviewForms, setReviewForms] = useState({});
   const [submitting, setSubmitting] = useState({});
   const [reviewMessages, setReviewMessages] = useState({});
   const [submittedReviews, setSubmittedReviews] = useState({});
+
+  const [trackingDetails, setTrackingDetails] = useState({
+    orderId: "",
+    email: "",
+  });
+
+  const [tracking, setTracking] = useState(false);
+  const [guestTracked, setGuestTracked] = useState(false);
+
+  const [isLoggedIn] = useState(
+    Boolean(localStorage.getItem("token"))
+  );
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -18,7 +31,6 @@ const MyOrders = () => {
         const token = localStorage.getItem("token");
 
         if (!token) {
-          setError("Please login to view your orders.");
           return;
         }
 
@@ -44,6 +56,41 @@ const MyOrders = () => {
 
     fetchOrders();
   }, []);
+
+  const handleTrackOrder = async (event) => {
+    event.preventDefault();
+
+    try {
+      setTracking(true);
+      setError("");
+      setOrders([]);
+      setGuestTracked(false);
+
+      const response = await fetch(`${API_URL}/orders/track`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          orderId: trackingDetails.orderId.trim(),
+          email: trackingDetails.email.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.message || "Order not found.");
+      }
+
+      setOrders([data.order]);
+      setGuestTracked(true);
+    } catch (err) {
+      setError(err.message || "Unable to track order.");
+    } finally {
+      setTracking(false);
+    }
+  };
 
   const formatPrice = (price) =>
     `Rs. ${Number(price || 0).toLocaleString("en-PK")}`;
@@ -89,7 +136,10 @@ const MyOrders = () => {
   const submitReview = async (order, item) => {
     const productId = getProductId(item);
     const key = getReviewKey(order._id, productId);
-    const form = reviewForms[key] || { rating: 5, comment: "" };
+    const form = reviewForms[key] || {
+      rating: 5,
+      comment: "",
+    };
 
     if (!productId) {
       setReviewMessages((previous) => ({
@@ -114,7 +164,10 @@ const MyOrders = () => {
     }
 
     try {
-      setSubmitting((previous) => ({ ...previous, [key]: true }));
+      setSubmitting((previous) => ({
+        ...previous,
+        [key]: true,
+      }));
 
       setReviewMessages((previous) => ({
         ...previous,
@@ -164,14 +217,19 @@ const MyOrders = () => {
         },
       }));
     } finally {
-      setSubmitting((previous) => ({ ...previous, [key]: false }));
+      setSubmitting((previous) => ({
+        ...previous,
+        [key]: false,
+      }));
     }
   };
 
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center bg-[#faf9f6]">
-        <p className="text-sm text-gray-500">Loading your orders...</p>
+        <p className="text-sm text-gray-500">
+          Loading your orders...
+        </p>
       </div>
     );
   }
@@ -193,11 +251,76 @@ const MyOrders = () => {
           </p>
         </div>
 
-        {error ? (
+        {!isLoggedIn && (
+          <div className="mb-8 rounded-lg border border-gray-200 bg-white p-6">
+            <h2 className="text-xl font-semibold text-[#191919]">
+              Track Your Order
+            </h2>
+
+            <p className="mt-2 text-sm text-gray-500">
+              Apna order number aur checkout wala email enter karein.
+            </p>
+
+            <form
+              onSubmit={handleTrackOrder}
+              className="mt-5 space-y-4"
+            >
+              <input
+                type="text"
+                required
+                placeholder="Order Number"
+                value={trackingDetails.orderId}
+                onChange={(event) =>
+                  setTrackingDetails((previous) => ({
+                    ...previous,
+                    orderId: event.target.value,
+                  }))
+                }
+                className="w-full border border-gray-200 bg-white px-4 py-3 text-sm text-[#191919] outline-none focus:border-[#8c7650]"
+              />
+
+              <input
+                type="email"
+                required
+                placeholder="Email Address"
+                value={trackingDetails.email}
+                onChange={(event) =>
+                  setTrackingDetails((previous) => ({
+                    ...previous,
+                    email: event.target.value,
+                  }))
+                }
+                className="w-full border border-gray-200 bg-white px-4 py-3 text-sm text-[#191919] outline-none focus:border-[#8c7650]"
+              />
+
+              <button
+                type="submit"
+                disabled={tracking}
+                className="w-full bg-[#191919] px-6 py-3 text-sm font-medium text-white transition hover:bg-[#8c7650] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {tracking ? "Searching..." : "Track Order"}
+              </button>
+            </form>
+
+            {error && (
+              <p className="mt-4 text-sm text-red-600">
+                {error}
+              </p>
+            )}
+
+            {guestTracked && (
+              <p className="mt-4 text-sm text-green-700">
+                Order successfully found.
+              </p>
+            )}
+          </div>
+        )}
+
+        {isLoggedIn && error ? (
           <div className="rounded-lg border border-red-200 bg-white p-6 text-center">
             <p className="text-sm text-red-600">{error}</p>
           </div>
-        ) : orders.length === 0 ? (
+        ) : orders.length === 0 && isLoggedIn ? (
           <div className="rounded-lg border border-gray-200 bg-white px-6 py-16 text-center">
             <h2 className="text-xl font-medium text-[#191919]">
               No orders yet
@@ -214,11 +337,31 @@ const MyOrders = () => {
               Continue Shopping
             </a>
           </div>
-        ) : (
+        ) : orders.length > 0 ? (
           <div className="space-y-6">
-            <p className="text-sm text-gray-600">
-              {orders.length} {orders.length === 1 ? "order" : "orders"}
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-600">
+                {orders.length} {orders.length === 1 ? "order" : "orders"}
+              </p>
+
+              {!isLoggedIn && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOrders([]);
+                    setGuestTracked(false);
+                    setError("");
+                    setTrackingDetails({
+                      orderId: "",
+                      email: "",
+                    });
+                  }}
+                  className="text-sm font-medium text-[#8c7650] underline"
+                >
+                  Track another order
+                </button>
+              )}
+            </div>
 
             {orders.map((order) => (
               <section
@@ -231,6 +374,7 @@ const MyOrders = () => {
                       <p className="text-[10px] uppercase tracking-widest text-gray-500">
                         Order Date
                       </p>
+
                       <p className="mt-1 text-sm font-medium text-[#191919]">
                         {formatDate(order.createdAt)}
                       </p>
@@ -240,6 +384,7 @@ const MyOrders = () => {
                       <p className="text-[10px] uppercase tracking-widest text-gray-500">
                         Order Total
                       </p>
+
                       <p className="mt-1 text-sm font-medium text-[#191919]">
                         {formatPrice(order.total)}
                       </p>
@@ -249,6 +394,7 @@ const MyOrders = () => {
                       <p className="text-[10px] uppercase tracking-widest text-gray-500">
                         Order Number
                       </p>
+
                       <p className="mt-1 break-all text-xs text-gray-700">
                         {order._id}
                       </p>
@@ -274,6 +420,7 @@ const MyOrders = () => {
 
                     const productId = getProductId(item);
                     const key = getReviewKey(order._id, productId);
+
                     const image =
                       item.image ||
                       product?.images?.[0] ||
@@ -334,112 +481,116 @@ const MyOrders = () => {
                           </div>
                         </div>
 
-                        {order.orderStatus === "Delivered" && (
-                          <div className="mt-5 rounded-lg border border-[#e7dfd1] bg-[#faf9f6] p-4 sm:p-5">
-                            {submittedReviews[key] ? (
-                              <div>
-                                <p className="text-sm font-semibold text-green-700">
-                                  Review submitted successfully
-                                </p>
-                                <p className="mt-1 text-sm text-gray-500">
-                                  Shukriya! Tumhara feedback save ho gaya hai.
-                                </p>
-                              </div>
-                            ) : (
-                              <>
-                                <h4 className="text-base font-semibold text-[#191919]">
-                                  Write a Review
-                                </h4>
-
-                                <p className="mt-1 text-sm text-gray-500">
-                                  Is product ke bare mein apna experience share karo.
-                                </p>
-
-                                <div className="mt-4">
-                                  <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-600">
-                                    Your Rating
+                        {order.orderStatus === "Delivered" &&
+                          isLoggedIn && (
+                            <div className="mt-5 rounded-lg border border-[#e7dfd1] bg-[#faf9f6] p-4 sm:p-5">
+                              {submittedReviews[key] ? (
+                                <div>
+                                  <p className="text-sm font-semibold text-green-700">
+                                    Review submitted successfully
                                   </p>
 
-                                  <div className="flex gap-2">
-                                    {[1, 2, 3, 4, 5].map((star) => (
-                                      <button
-                                        key={star}
-                                        type="button"
-                                        onClick={() =>
-                                          updateReviewForm(
-                                            key,
-                                            "rating",
-                                            star
-                                          )
-                                        }
-                                        aria-label={`${star} star rating`}
-                                        className={`text-3xl transition ${
-                                          star <= Number(form.rating)
-                                            ? "text-[#b69a68]"
-                                            : "text-gray-300"
-                                        }`}
-                                      >
-                                        ★
-                                      </button>
-                                    ))}
+                                  <p className="mt-1 text-sm text-gray-500">
+                                    Shukriya! Tumhara feedback save ho gaya hai.
+                                  </p>
+                                </div>
+                              ) : (
+                                <>
+                                  <h4 className="text-base font-semibold text-[#191919]">
+                                    Write a Review
+                                  </h4>
+
+                                  <p className="mt-1 text-sm text-gray-500">
+                                    Is product ke bare mein apna experience share karo.
+                                  </p>
+
+                                  <div className="mt-4">
+                                    <p className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-600">
+                                      Your Rating
+                                    </p>
+
+                                    <div className="flex gap-2">
+                                      {[1, 2, 3, 4, 5].map((star) => (
+                                        <button
+                                          key={star}
+                                          type="button"
+                                          onClick={() =>
+                                            updateReviewForm(
+                                              key,
+                                              "rating",
+                                              star
+                                            )
+                                          }
+                                          aria-label={`${star} star rating`}
+                                          className={`text-3xl transition ${
+                                            star <= Number(form.rating)
+                                              ? "text-[#b69a68]"
+                                              : "text-gray-300"
+                                          }`}
+                                        >
+                                          ★
+                                        </button>
+                                      ))}
+                                    </div>
                                   </div>
-                                </div>
 
-                                <div className="mt-4">
-                                  <label
-                                    htmlFor={`review-${key}`}
-                                    className="mb-2 block text-xs font-medium uppercase tracking-wider text-gray-600"
-                                  >
-                                    Your Review
-                                  </label>
+                                  <div className="mt-4">
+                                    <label
+                                      htmlFor={`review-${key}`}
+                                      className="mb-2 block text-xs font-medium uppercase tracking-wider text-gray-600"
+                                    >
+                                      Your Review
+                                    </label>
 
-                                  <textarea
-                                    id={`review-${key}`}
-                                    value={form.comment}
-                                    onChange={(event) =>
-                                      updateReviewForm(
-                                        key,
-                                        "comment",
-                                        event.target.value
-                                      )
+                                    <textarea
+                                      id={`review-${key}`}
+                                      value={form.comment}
+                                      onChange={(event) =>
+                                        updateReviewForm(
+                                          key,
+                                          "comment",
+                                          event.target.value
+                                        )
+                                      }
+                                      placeholder="Product quality, comfort aur fitting ke bare mein likhein..."
+                                      rows={4}
+                                      maxLength={1000}
+                                      className="w-full resize-y border border-gray-200 bg-white p-3 text-sm text-[#191919] outline-none transition focus:border-[#8c7650]"
+                                    />
+
+                                    <p className="mt-1 text-right text-xs text-gray-400">
+                                      {form.comment.length}/1000
+                                    </p>
+                                  </div>
+
+                                  {message && (
+                                    <p
+                                      className={`mt-3 text-sm ${
+                                        message.type === "success"
+                                          ? "text-green-700"
+                                          : "text-red-600"
+                                      }`}
+                                    >
+                                      {message.text}
+                                    </p>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    disabled={Boolean(submitting[key])}
+                                    onClick={() =>
+                                      submitReview(order, item)
                                     }
-                                    placeholder="Product quality, comfort aur fitting ke bare mein likhein..."
-                                    rows={4}
-                                    maxLength={1000}
-                                    className="w-full resize-y border border-gray-200 bg-white p-3 text-sm text-[#191919] outline-none transition focus:border-[#8c7650]"
-                                  />
-
-                                  <p className="mt-1 text-right text-xs text-gray-400">
-                                    {form.comment.length}/1000
-                                  </p>
-                                </div>
-
-                                {message && (
-                                  <p
-                                    className={`mt-3 text-sm ${
-                                      message.type === "success"
-                                        ? "text-green-700"
-                                        : "text-red-600"
-                                    }`}
+                                    className="mt-4 bg-[#191919] px-6 py-3 text-sm font-medium text-white transition hover:bg-[#8c7650] disabled:cursor-not-allowed disabled:opacity-50"
                                   >
-                                    {message.text}
-                                  </p>
-                                )}
-
-                                <button
-                                  type="button"
-                                  disabled={Boolean(submitting[key])}
-                                  onClick={() => submitReview(order, item)}
-                                  className="mt-4 bg-[#191919] px-6 py-3 text-sm font-medium text-white transition hover:bg-[#8c7650] disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                  {submitting[key]
-                                    ? "Submitting..."
-                                    : "Submit Review"}
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        )}
+                                    {submitting[key]
+                                      ? "Submitting..."
+                                      : "Submit Review"}
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          )}
                       </div>
                     );
                   })}
@@ -460,7 +611,7 @@ const MyOrders = () => {
               </section>
             ))}
           </div>
-        )}
+        ) : null}
       </div>
     </main>
   );
