@@ -70,7 +70,7 @@ const getHeaders = () => {
   };
 };
 
-// Guest orders do not require authentication.
+// Guest order ke liye Authorization required nahi.
 const getGuestHeaders = () => ({
   "Content-Type": "application/json",
 });
@@ -222,8 +222,6 @@ const Checkout = () => {
         quantity: getQuantity(item),
         color: item?.color || item?.selectedColor || "",
         size: item?.size || item?.selectedSize || "",
-        reservations: item?.reservations || [],
-        reservationId: item?.reservationId || "",
       })),
     [cartItems]
   );
@@ -277,10 +275,11 @@ const Checkout = () => {
       items.some(
         (item) =>
           !item.productId ||
+          !item.title.trim() ||
           !Number.isInteger(item.quantity) ||
           item.quantity < 1 ||
           !Number.isFinite(item.price) ||
-          item.price < 0
+          item.price <= 0
       )
     ) {
       setError("Cart mein product information check karein.");
@@ -291,47 +290,41 @@ const Checkout = () => {
     return true;
   };
 
-  // Backend guest order payload
+  // Guest aur logged-in customer dono order place kar sakte hain.
   const createOrder = async (method, paymentIntentId = "") => {
-    const nameParts = form.customerName.trim().split(/\s+/);
-
-    const firstname = nameParts[0];
-    const lastname = nameParts.slice(1).join(" ") || firstname;
-
     const orderItems = items.map((item) => ({
       productId: item.productId,
+      title: item.title,
+      image: item.image,
+      price: item.price,
       quantity: item.quantity,
-      size: item.size,
       color: item.color,
-      ...(item.reservations.length
-        ? { reservations: item.reservations }
-        : {}),
-      ...(item.reservationId
-        ? { reservationId: item.reservationId }
-        : {}),
+      size: item.size,
     }));
 
     const orderPayload = {
-      firstname,
-      lastname,
+      customerName: form.customerName.trim(),
       email: form.email.trim(),
       phone: form.phone.trim(),
       address: form.address.trim(),
       city: form.city.trim(),
+
       items: orderItems,
+
+      subtotal,
+      shipping,
+      total,
+
       paymentMethod: method,
+
       ...(paymentIntentId ? { paymentIntentId } : {}),
     };
 
-    // Correct guest order endpoint: /orders/place
-    const response = await fetch(
-      `${API_URL}/orders/place`,
-      {
-        method: "POST",
-        headers: getGuestHeaders(),
-        body: JSON.stringify(orderPayload),
-      }
-    );
+    const response = await fetch(`${API_URL}/orders/place`, {
+      method: "POST",
+      headers: getGuestHeaders(),
+      body: JSON.stringify(orderPayload),
+    });
 
     const data = await response.json().catch(() => ({}));
 
@@ -341,10 +334,12 @@ const Checkout = () => {
       );
     }
 
-    const order = data.order || data.data || data;
+    if (!data.order) {
+      throw new Error("Backend se order confirmation nahi mili.");
+    }
 
-    setPlacedOrderTotal(getOrderTotal(order, total));
-    setPlacedOrder(order);
+    setPlacedOrderTotal(getOrderTotal(data.order, total));
+    setPlacedOrder(data.order);
     setClientSecret("");
     dispatch(clearCart());
   };
@@ -395,9 +390,7 @@ const Checkout = () => {
         }
 
         if (!data.clientSecret) {
-          throw new Error(
-            "Backend se clientSecret nahi mila."
-          );
+          throw new Error("Backend se clientSecret nahi mila.");
         }
 
         if (!cancelled) {
