@@ -57,16 +57,21 @@ export default function Hero() {
 
   return (
     <section className="relative w-full overflow-hidden bg-white">
-      {/* Desktop: static banner */}
+      {/* Desktop Hero */}
       <picture className="hidden md:block">
         <img
           src={slides[0].desktopImage}
           alt={slides[0].alt}
+          width="600"
+          height="400"
+          fetchPriority="high"
+          loading="eager"
+          decoding="async"
           className="block h-auto max-h-[850px] w-full object-cover"
         />
       </picture>
 
-      {/* Mobile: swipe + auto slider */}
+      {/* Mobile Hero Slider */}
       <div
         className="relative block w-full overflow-hidden md:hidden"
         onTouchStart={handleTouchStart}
@@ -78,7 +83,7 @@ export default function Hero() {
             transform: `translate3d(-${activeSlide * 100}%, 0, 0)`,
           }}
         >
-          {slides.map((slide) => (
+          {slides.map((slide, index) => (
             <a
               key={slide.id}
               href={slide.link}
@@ -88,6 +93,11 @@ export default function Hero() {
               <img
                 src={slide.mobileImage}
                 alt={slide.alt}
+                width="600"
+                height="400"
+                loading={index === 0 ? "eager" : "lazy"}
+                fetchPriority={index === 0 ? "high" : "low"}
+                decoding="async"
                 draggable="false"
                 className="block h-auto w-full select-none object-cover"
               />
@@ -95,7 +105,7 @@ export default function Hero() {
           ))}
         </div>
 
-        {/* Minimal premium dash indicators */}
+        {/* Slider Indicators */}
         <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2.5 rounded-full bg-black/15 px-3 py-2 backdrop-blur-sm">
           {slides.map((slide, index) => (
             <button
