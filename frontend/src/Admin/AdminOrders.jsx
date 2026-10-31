@@ -166,7 +166,7 @@ const AdminOrders = () => {
       <div className="mx-auto max-w-7xl">
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="mb-2 text-xs uppercase tracking-[0.25em] text-[#8c7650]">
+            <p className="mb-2 text-xs uppercase tracking-[0.25em] text-[#6f5c3d]">
               Store Administration
             </p>
             <h1 className="text-3xl font-semibold text-[#191919]">
@@ -275,7 +275,7 @@ const AdminOrders = () => {
                       onChange={(event) =>
                         updateStatus(order._id, event.target.value)
                       }
-                      className="min-w-40 border border-gray-300 bg-white px-3 py-2.5 text-sm text-[#191919] outline-none focus:border-[#8c7650] disabled:opacity-50"
+                      className="min-w-40 border border-gray-300 bg-white px-3 py-2.5 text-sm text-[#191919] outline-none focus:border-[#6f5c3d] disabled:opacity-50"
                       aria-label="Update order status"
                     >
                       {statuses.map((status) => (

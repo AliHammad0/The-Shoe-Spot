@@ -309,7 +309,7 @@ function CreateProduct({ onProductCreated, onCancel }) {
         {/* Basic Information */}
         <div className={sectionClass}>
           <div className="mb-6 flex items-center gap-3 border-b border-gray-100 pb-5">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#f3eee5] text-[#8c7650]">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#f3eee5] text-[#6f5c3d]">
               <FiPackage size={21} />
             </div>
 
@@ -427,7 +427,7 @@ function CreateProduct({ onProductCreated, onCancel }) {
         {/* Product Images */}
         <div className={sectionClass}>
           <div className="mb-6 flex items-center gap-3 border-b border-gray-100 pb-5">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#f3eee5] text-[#8c7650]">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#f3eee5] text-[#6f5c3d]">
               <FiImage size={21} />
             </div>
 
@@ -486,7 +486,7 @@ function CreateProduct({ onProductCreated, onCancel }) {
         {/* Sizes and Colors */}
         <div className={sectionClass}>
           <div className="mb-6 flex items-center gap-3 border-b border-gray-100 pb-5">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#f3eee5] text-[#8c7650]">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#f3eee5] text-[#6f5c3d]">
               <FiLayers size={21} />
             </div>
 
@@ -546,7 +546,7 @@ function CreateProduct({ onProductCreated, onCancel }) {
                       <button
                         type="button"
                         onClick={() => removeSize(size)}
-                        className="text-[#8c7650] transition hover:text-red-600"
+                        className="text-[#6f5c3d] transition hover:text-red-600"
                         aria-label={`Remove size ${size}`}
                       >
                         <FiX size={15} />
@@ -607,7 +607,7 @@ function CreateProduct({ onProductCreated, onCancel }) {
                       <button
                         type="button"
                         onClick={() => removeColor(color)}
-                        className="text-[#8c7650] transition hover:text-red-600"
+                        className="text-[#6f5c3d] transition hover:text-red-600"
                         aria-label={`Remove color ${color}`}
                       >
                         <FiX size={15} />
@@ -627,7 +627,7 @@ function CreateProduct({ onProductCreated, onCancel }) {
         {/* Product Status */}
         <div className={sectionClass}>
           <div className="mb-5 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#f3eee5] text-[#8c7650]">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#f3eee5] text-[#6f5c3d]">
               <FiTag size={21} />
             </div>
 
@@ -647,7 +647,7 @@ function CreateProduct({ onProductCreated, onCancel }) {
                 onChange={(event) =>
                   updateField("newArrival", event.target.checked)
                 }
-                className="h-5 w-5 shrink-0 accent-[#8c7650]"
+                className="h-5 w-5 shrink-0 accent-[#6f5c3d]"
               />
 
               <span>
@@ -667,7 +667,7 @@ function CreateProduct({ onProductCreated, onCancel }) {
                 onChange={(event) =>
                   updateField("isActive", event.target.checked)
                 }
-                className="h-5 w-5 shrink-0 accent-[#8c7650]"
+                className="h-5 w-5 shrink-0 accent-[#6f5c3d]"
               />
 
               <span>

@@ -61,7 +61,7 @@ const AdminDashboard = () => {
       case "Settings":
         return (
           <div className="rounded-2xl border border-gray-100 bg-white p-8 shadow-sm sm:p-12">
-            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#f3eee5] text-[#8c7650]">
+            <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#f3eee5] text-[#6f5c3d]">
               <FiSettings size={28} />
             </div>
 

@@ -39,7 +39,7 @@ export default function WishList() {
       <div className="mx-auto max-w-7xl">
         <div className="mb-10 border-b border-gray-200 pb-6">
           <div className="flex items-center gap-3">
-            <FiHeart size={25} className="text-[#8c7650]" />
+            <FiHeart size={25} className="text-[#6f5c3d]" />
 
             <h1 className="text-3xl font-semibold tracking-tight text-[#191919] sm:text-4xl">
               My Wishlist
@@ -74,7 +74,7 @@ export default function WishList() {
 
             <Link
               to="/shop"
-              className="mt-7 inline-flex items-center gap-2 bg-[#191919] px-7 py-3.5 text-sm font-medium text-white transition hover:bg-[#8c7650]"
+              className="mt-7 inline-flex items-center gap-2 bg-[#191919] px-7 py-3.5 text-sm font-medium text-white transition hover:bg-[#6f5c3d]"
             >
               <FiShoppingBag size={17} />
               Explore Shoes
@@ -137,7 +137,7 @@ export default function WishList() {
 
                     <div className="p-4">
                       <Link to={productPath}>
-                        <h2 className="line-clamp-2 min-h-12 text-base font-medium text-[#191919] transition hover:text-[#8c7650]">
+                        <h2 className="line-clamp-2 min-h-12 text-base font-medium text-[#191919] transition hover:text-[#6f5c3d]">
                           {product.title || product.name || "Untitled Product"}
                         </h2>
                       </Link>

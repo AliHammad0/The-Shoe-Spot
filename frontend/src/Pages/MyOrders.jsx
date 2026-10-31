@@ -218,7 +218,7 @@ const MyOrders = () => {
     <main className="min-h-screen bg-[#faf9f6] px-4 py-10 sm:px-8 lg:px-16">
       <div className="mx-auto max-w-6xl">
         <div className="mb-10 border-b border-gray-200 pb-6">
-          <p className="mb-2 text-xs uppercase tracking-[0.3em] text-[#8c7650]">
+          <p className="mb-2 text-xs uppercase tracking-[0.3em] text-[#6f5c3d]">
             Your Account
           </p>
 
@@ -260,7 +260,7 @@ const MyOrders = () => {
 
             <a
               href="/shop"
-              className="mt-6 inline-block bg-[#191919] px-7 py-3 text-sm text-white transition hover:bg-[#8c7650]"
+              className="mt-6 inline-block bg-[#191919] px-7 py-3 text-sm text-white transition hover:bg-[#6f5c3d]"
             >
               Continue Shopping
             </a>
@@ -460,7 +460,7 @@ const MyOrders = () => {
                                       placeholder="Product quality, comfort aur fitting ke bare mein likhein..."
                                       rows={4}
                                       maxLength={1000}
-                                      className="w-full resize-y border border-gray-200 bg-white p-3 text-sm text-[#191919] outline-none transition focus:border-[#8c7650]"
+                                      className="w-full resize-y border border-gray-200 bg-white p-3 text-sm text-[#191919] outline-none transition focus:border-[#6f5c3d]"
                                     />
 
                                     <p className="mt-1 text-right text-xs text-gray-400">
@@ -484,7 +484,7 @@ const MyOrders = () => {
                                     type="button"
                                     disabled={Boolean(submitting[key])}
                                     onClick={() => submitReview(order, item)}
-                                    className="mt-4 bg-[#191919] px-6 py-3 text-sm font-medium text-white transition hover:bg-[#8c7650] disabled:cursor-not-allowed disabled:opacity-50"
+                                    className="mt-4 bg-[#191919] px-6 py-3 text-sm font-medium text-white transition hover:bg-[#6f5c3d] disabled:cursor-not-allowed disabled:opacity-50"
                                   >
                                     {submitting[key]
                                       ? "Submitting..."

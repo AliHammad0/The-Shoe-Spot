@@ -66,7 +66,7 @@ export default function CategoryProducts() {
     >
       <div className="mx-auto max-w-7xl">
         <div className="mb-10">
-          <p className="mb-3 text-sm font-semibold uppercase tracking-[3px] text-[#8c7650]">
+          <p className="mb-3 text-sm font-semibold uppercase tracking-[3px] text-[#6f5c3d]">
             The Shoe Spot
           </p>
 

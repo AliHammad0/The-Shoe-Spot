@@ -749,7 +749,7 @@ export default function ProductDetails() {
           </section>
 
           <section className="min-w-0 lg:pt-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#8c7650]">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#6f5c3d]">
               Men · {product.category}
             </p>
 

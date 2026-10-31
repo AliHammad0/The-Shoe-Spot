@@ -306,7 +306,7 @@ const AllProducts = () => {
                 {products.length}
               </h3>
             </div>
-            <div className="rounded-2xl bg-[#f3eee5] p-4 text-[#8c7650] transition-transform group-hover:scale-110">
+            <div className="rounded-2xl bg-[#f3eee5] p-4 text-[#6f5c3d] transition-transform group-hover:scale-110">
               <FiPackage size={24} />
             </div>
           </div>
@@ -692,7 +692,7 @@ const AllProducts = () => {
                     name="isActive"
                     checked={editForm.isActive}
                     onChange={handleFormChange}
-                    className="h-4 w-4 accent-[#8c7650]"
+                    className="h-4 w-4 accent-[#6f5c3d]"
                   />
                   Product Active
                 </label>
@@ -703,7 +703,7 @@ const AllProducts = () => {
                     name="newArrival"
                     checked={editForm.newArrival}
                     onChange={handleFormChange}
-                    className="h-4 w-4 accent-[#8c7650]"
+                    className="h-4 w-4 accent-[#6f5c3d]"
                   />
                   New Arrival
                 </label>

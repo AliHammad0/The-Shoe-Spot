@@ -278,7 +278,7 @@ const NewArrivals = () => {
                         type="checkbox"
                         checked={selectedColors.includes(color)}
                         onChange={() => toggleColor(color)}
-                        className="h-4 w-4 accent-[#8c7650]"
+                        className="h-4 w-4 accent-[#6f5c3d]"
                       />
                       {color}
                     </label>
@@ -304,7 +304,7 @@ const NewArrivals = () => {
                   value={minPrice}
                   onChange={(event) => setMinPrice(event.target.value)}
                   placeholder="Min"
-                  className="w-full min-w-0 border border-[#ded8ce] bg-transparent px-3 py-2 text-sm outline-none focus:border-[#8c7650]"
+                  className="w-full min-w-0 border border-[#ded8ce] bg-transparent px-3 py-2 text-sm outline-none focus:border-[#6f5c3d]"
                 />
 
                 <input
@@ -313,7 +313,7 @@ const NewArrivals = () => {
                   value={maxPrice}
                   onChange={(event) => setMaxPrice(event.target.value)}
                   placeholder="Max"
-                  className="w-full min-w-0 border border-[#ded8ce] bg-transparent px-3 py-2 text-sm outline-none focus:border-[#8c7650]"
+                  className="w-full min-w-0 border border-[#ded8ce] bg-transparent px-3 py-2 text-sm outline-none focus:border-[#6f5c3d]"
                 />
               </div>
             </div>
@@ -399,14 +399,14 @@ const NewArrivals = () => {
 
                       {/* Product Information */}
                       <div className="pt-4">
-                        <p className="mb-1 text-[10px] uppercase tracking-[0.16em] text-[#8c7650] sm:text-xs">
+                        <p className="mb-1 text-[10px] uppercase tracking-[0.16em] text-[#6f5c3d] sm:text-xs">
                           {product.category || "Shoes"}
                         </p>
 
                         <h2 className="text-xs font-medium leading-5 sm:text-sm">
                           <Link
                             to={`/products/${productId}`}
-                            className="transition hover:text-[#8c7650]"
+                            className="transition hover:text-[#6f5c3d]"
                           >
                             {productName}
                           </Link>
@@ -436,7 +436,7 @@ const NewArrivals = () => {
                         {/* View Details */}
                         <Link
                           to={`/products/${productId}`}
-                          className="mt-4 inline-block border-b border-[#191919] pb-1 text-[10px] font-medium uppercase tracking-[0.15em] transition hover:border-[#8c7650] hover:text-[#8c7650] sm:text-xs"
+                          className="mt-4 inline-block border-b border-[#191919] pb-1 text-[10px] font-medium uppercase tracking-[0.15em] transition hover:border-[#6f5c3d] hover:text-[#6f5c3d] sm:text-xs"
                         >
                           View Details
                         </Link>

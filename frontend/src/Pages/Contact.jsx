@@ -109,7 +109,7 @@ export default function Contact() {
       style={{ fontFamily: "Arial, Helvetica, sans-serif" }}
     >
       <section className="border-b border-[#e9e5dc] px-5 py-16 text-center sm:py-20">
-        <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.25em] text-[#8c7650]">
+        <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.25em] text-[#6f5c3d]">
           We're Here To Help
         </p>
 
@@ -126,7 +126,7 @@ export default function Contact() {
       <section className="mx-auto max-w-4xl px-4 py-12 sm:px-7 sm:py-16">
         <div className="bg-white p-5 shadow-[0_10px_50px_rgba(0,0,0,0.04)] sm:p-10 lg:p-12">
           <div className="mb-9">
-            <p className="mb-2 text-[10px] uppercase tracking-[0.2em] text-[#8c7650]">
+            <p className="mb-2 text-[10px] uppercase tracking-[0.2em] text-[#6f5c3d]">
               Contact Form
             </p>
 
@@ -157,7 +157,7 @@ export default function Contact() {
                     placeholder="Enter your name"
                     autoComplete="name"
                     required
-                    className="w-full border border-gray-200 bg-white py-3 pl-10 pr-3 text-sm outline-none transition focus:border-[#8c7650]"
+                    className="w-full border border-gray-200 bg-white py-3 pl-10 pr-3 text-sm outline-none transition focus:border-[#6f5c3d]"
                   />
                 </div>
               </div>
@@ -178,7 +178,7 @@ export default function Contact() {
                     placeholder="Enter your email"
                     autoComplete="email"
                     required
-                    className="w-full border border-gray-200 bg-white py-3 pl-10 pr-3 text-sm outline-none transition focus:border-[#8c7650]"
+                    className="w-full border border-gray-200 bg-white py-3 pl-10 pr-3 text-sm outline-none transition focus:border-[#6f5c3d]"
                   />
                 </div>
               </div>
@@ -221,7 +221,7 @@ export default function Contact() {
                   value={form.category}
                   onChange={handleChange}
                   required
-                  className="w-full appearance-none border border-gray-200 bg-white py-3 pl-10 pr-10 text-sm outline-none focus:border-[#8c7650]"
+                  className="w-full appearance-none border border-gray-200 bg-white py-3 pl-10 pr-10 text-sm outline-none focus:border-[#6f5c3d]"
                 >
                   <option value="">Select Shoe Category</option>
 
@@ -251,7 +251,7 @@ export default function Contact() {
                   onChange={handleChange}
                   required
                   placeholder="Enter required quantity"
-                  className="w-full border border-gray-200 bg-white py-3 pl-10 pr-3 text-sm outline-none focus:border-[#8c7650]"
+                  className="w-full border border-gray-200 bg-white py-3 pl-10 pr-3 text-sm outline-none focus:border-[#6f5c3d]"
                 />
               </div>
 
@@ -274,7 +274,7 @@ export default function Contact() {
                   onChange={handleChange}
                   rows="5"
                   placeholder="Tell us about sizes, colors, designs or any other requirements..."
-                  className="w-full resize-none border border-gray-200 bg-white py-3 pl-10 pr-3 text-sm outline-none focus:border-[#8c7650]"
+                  className="w-full resize-none border border-gray-200 bg-white py-3 pl-10 pr-3 text-sm outline-none focus:border-[#6f5c3d]"
                 />
               </div>
             </div>
@@ -298,7 +298,7 @@ export default function Contact() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#191919] px-6 py-4 text-xs font-medium uppercase tracking-[0.18em] text-white transition hover:bg-[#8c7650] disabled:opacity-50"
+              className="w-full bg-[#191919] px-6 py-4 text-xs font-medium uppercase tracking-[0.18em] text-white transition hover:bg-[#6f5c3d] disabled:opacity-50"
             >
               {loading ? "Please Wait..." : "Submit Inquiry"}
             </button>
