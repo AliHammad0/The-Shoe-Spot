@@ -85,6 +85,43 @@ const formatPrice = (amount) =>
 const getErrorMessage = (data, fallback) =>
   data?.message || data?.error || fallback;
 
+const GUEST_ORDERS_KEY = "shoe-spot-guest-orders";
+
+const saveGuestOrder = (order) => {
+  try {
+    const orderId = order?._id || order?.id || order?.orderNumber;
+
+    if (!orderId) {
+      console.warn("Order ID missing; guest order local save skipped.");
+      return;
+    }
+
+    const existingOrders = JSON.parse(
+      localStorage.getItem(GUEST_ORDERS_KEY) || "[]"
+    );
+
+    const orders = Array.isArray(existingOrders) ? existingOrders : [];
+    const savedOrder = {
+      ...order,
+      _id: order._id || order.id || order.orderNumber,
+      localSavedAt: new Date().toISOString(),
+    };
+
+    const updatedOrders = [
+      savedOrder,
+      ...orders.filter(
+        (item) =>
+          String(item?._id || item?.id || item?.orderNumber) !==
+          String(orderId)
+      ),
+    ];
+
+    localStorage.setItem(GUEST_ORDERS_KEY, JSON.stringify(updatedOrders));
+  } catch (error) {
+    console.error("Guest order local save failed:", error);
+  }
+};
+
 const getOrderTotal = (order, fallbackTotal) => {
   const candidates = [
     order?.total,
@@ -337,6 +374,10 @@ const Checkout = () => {
     if (!data.order) {
       throw new Error("Backend se order confirmation nahi mili.");
     }
+
+    // Guest customer ka order isi browser mein automatically save hoga.
+    // My Orders page is saved order ko bina login ke read kar sakta hai.
+    saveGuestOrder(data.order);
 
     setPlacedOrderTotal(getOrderTotal(data.order, total));
     setPlacedOrder(data.order);
