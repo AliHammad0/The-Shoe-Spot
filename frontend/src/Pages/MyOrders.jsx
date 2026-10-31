@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 
-const API_URL =
-  "https://the-shoe-spot-backend.vercel.app/api/v1";
+const API_URL = "https://the-shoe-spot-backend.vercel.app/api/v1";
+const GUEST_ORDERS_KEY = "shoe-spot-guest-orders";
 
 const MyOrders = () => {
   const [orders, setOrders] = useState([]);
@@ -13,42 +13,56 @@ const MyOrders = () => {
   const [reviewMessages, setReviewMessages] = useState({});
   const [submittedReviews, setSubmittedReviews] = useState({});
 
-  const [trackingDetails, setTrackingDetails] = useState({
-    orderId: "",
-    email: "",
-  });
-
-  const [tracking, setTracking] = useState(false);
-  const [guestTracked, setGuestTracked] = useState(false);
-
-  const [isLoggedIn] = useState(
-    Boolean(localStorage.getItem("token"))
+  const [isLoggedIn, setIsLoggedIn] = useState(
+    Boolean(
+      localStorage.getItem("token") ||
+        localStorage.getItem("accessToken")
+    )
   );
 
   useEffect(() => {
     const fetchOrders = async () => {
+      const token =
+        localStorage.getItem("token") ||
+        localStorage.getItem("accessToken");
+
+      setIsLoggedIn(Boolean(token));
+
+      // Logged-in customer: orders backend se load honge.
+      if (token) {
+        try {
+          const response = await fetch(`${API_URL}/orders/my-orders`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          const data = await response.json().catch(() => ({}));
+
+          if (!response.ok || data.ok === false) {
+            throw new Error(data.message || "Failed to load orders.");
+          }
+
+          setOrders(Array.isArray(data.orders) ? data.orders : []);
+        } catch (err) {
+          setError(err.message || "Something went wrong.");
+        } finally {
+          setLoading(false);
+        }
+
+        return;
+      }
+
+      // Guest customer: checkout par isi browser mein saved orders.
       try {
-        const token = localStorage.getItem("token");
+        const savedOrders = JSON.parse(
+          localStorage.getItem(GUEST_ORDERS_KEY) || "[]"
+        );
 
-        if (!token) {
-          return;
-        }
-
-        const response = await fetch(`${API_URL}/orders/my-orders`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        const data = await response.json();
-
-        if (!response.ok || !data.ok) {
-          throw new Error(data.message || "Failed to load orders.");
-        }
-
-        setOrders(data.orders || []);
-      } catch (err) {
-        setError(err.message || "Something went wrong.");
+        setOrders(Array.isArray(savedOrders) ? savedOrders : []);
+      } catch {
+        setOrders([]);
+        setError("Saved guest orders load nahi ho sake.");
       } finally {
         setLoading(false);
       }
@@ -56,41 +70,6 @@ const MyOrders = () => {
 
     fetchOrders();
   }, []);
-
-  const handleTrackOrder = async (event) => {
-    event.preventDefault();
-
-    try {
-      setTracking(true);
-      setError("");
-      setOrders([]);
-      setGuestTracked(false);
-
-      const response = await fetch(`${API_URL}/orders/track`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          orderId: trackingDetails.orderId.trim(),
-          email: trackingDetails.email.trim(),
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.ok) {
-        throw new Error(data.message || "Order not found.");
-      }
-
-      setOrders([data.order]);
-      setGuestTracked(true);
-    } catch (err) {
-      setError(err.message || "Unable to track order.");
-    } finally {
-      setTracking(false);
-    }
-  };
 
   const formatPrice = (price) =>
     `Rs. ${Number(price || 0).toLocaleString("en-PK")}`;
@@ -116,7 +95,7 @@ const MyOrders = () => {
   const getProductId = (item) =>
     typeof item.product === "object"
       ? item.product?._id
-      : item.product;
+      : item.product || item.productId;
 
   const getReviewKey = (orderId, productId) =>
     `${orderId}-${productId}`;
@@ -135,7 +114,8 @@ const MyOrders = () => {
 
   const submitReview = async (order, item) => {
     const productId = getProductId(item);
-    const key = getReviewKey(order._id, productId);
+    const orderId = order._id || order.id || order.orderNumber;
+    const key = getReviewKey(orderId, productId);
     const form = reviewForms[key] || {
       rating: 5,
       comment: "",
@@ -174,7 +154,9 @@ const MyOrders = () => {
         [key]: null,
       }));
 
-      const token = localStorage.getItem("token");
+      const token =
+        localStorage.getItem("token") ||
+        localStorage.getItem("accessToken");
 
       const response = await fetch(`${API_URL}/reviews`, {
         method: "POST",
@@ -184,15 +166,15 @@ const MyOrders = () => {
         },
         body: JSON.stringify({
           productId,
-          orderId: order._id,
+          orderId,
           rating: Number(form.rating),
           comment: form.comment.trim(),
         }),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
-      if (!response.ok || !data.ok) {
+      if (!response.ok || data.ok === false) {
         throw new Error(data.message || "Review submit nahi ho saka.");
       }
 
@@ -227,9 +209,7 @@ const MyOrders = () => {
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center bg-[#faf9f6]">
-        <p className="text-sm text-gray-500">
-          Loading your orders...
-        </p>
+        <p className="text-sm text-gray-500">Loading your orders...</p>
       </div>
     );
   }
@@ -252,82 +232,30 @@ const MyOrders = () => {
         </div>
 
         {!isLoggedIn && (
-          <div className="mb-8 rounded-lg border border-gray-200 bg-white p-6">
-            <h2 className="text-xl font-semibold text-[#191919]">
-              Track Your Order
-            </h2>
-
-            <p className="mt-2 text-sm text-gray-500">
-              Apna order number aur checkout wala email enter karein.
+          <div className="mb-6 rounded-lg border border-[#e7dfd1] bg-white p-4">
+            <p className="text-sm text-gray-600">
+              Guest checkout se kiye gaye orders isi browser mein automatically
+              show hote hain.
             </p>
-
-            <form
-              onSubmit={handleTrackOrder}
-              className="mt-5 space-y-4"
-            >
-              <input
-                type="text"
-                required
-                placeholder="Order Number"
-                value={trackingDetails.orderId}
-                onChange={(event) =>
-                  setTrackingDetails((previous) => ({
-                    ...previous,
-                    orderId: event.target.value,
-                  }))
-                }
-                className="w-full border border-gray-200 bg-white px-4 py-3 text-sm text-[#191919] outline-none focus:border-[#8c7650]"
-              />
-
-              <input
-                type="email"
-                required
-                placeholder="Email Address"
-                value={trackingDetails.email}
-                onChange={(event) =>
-                  setTrackingDetails((previous) => ({
-                    ...previous,
-                    email: event.target.value,
-                  }))
-                }
-                className="w-full border border-gray-200 bg-white px-4 py-3 text-sm text-[#191919] outline-none focus:border-[#8c7650]"
-              />
-
-              <button
-                type="submit"
-                disabled={tracking}
-                className="w-full bg-[#191919] px-6 py-3 text-sm font-medium text-white transition hover:bg-[#8c7650] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {tracking ? "Searching..." : "Track Order"}
-              </button>
-            </form>
-
-            {error && (
-              <p className="mt-4 text-sm text-red-600">
-                {error}
-              </p>
-            )}
-
-            {guestTracked && (
-              <p className="mt-4 text-sm text-green-700">
-                Order successfully found.
-              </p>
-            )}
           </div>
         )}
 
-        {isLoggedIn && error ? (
-          <div className="rounded-lg border border-red-200 bg-white p-6 text-center">
+        {error && (
+          <div className="mb-6 rounded-lg border border-red-200 bg-white p-5 text-center">
             <p className="text-sm text-red-600">{error}</p>
           </div>
-        ) : orders.length === 0 && isLoggedIn ? (
+        )}
+
+        {!error && orders.length === 0 ? (
           <div className="rounded-lg border border-gray-200 bg-white px-6 py-16 text-center">
             <h2 className="text-xl font-medium text-[#191919]">
               No orders yet
             </h2>
 
             <p className="mt-3 text-sm text-gray-500">
-              Purchase karne ke baad tumhare orders yahan show honge.
+              {isLoggedIn
+                ? "Purchase karne ke baad tumhare orders yahan show honge."
+                : "Is browser se abhi tak koi guest order place nahi hua."}
             </p>
 
             <a
@@ -337,159 +265,139 @@ const MyOrders = () => {
               Continue Shopping
             </a>
           </div>
-        ) : orders.length > 0 ? (
+        ) : (
           <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-600">
-                {orders.length} {orders.length === 1 ? "order" : "orders"}
-              </p>
+            <p className="text-sm text-gray-600">
+              {orders.length} {orders.length === 1 ? "order" : "orders"}
+            </p>
 
-              {!isLoggedIn && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOrders([]);
-                    setGuestTracked(false);
-                    setError("");
-                    setTrackingDetails({
-                      orderId: "",
-                      email: "",
-                    });
-                  }}
-                  className="text-sm font-medium text-[#8c7650] underline"
+            {orders.map((order, orderIndex) => {
+              const orderId =
+                order._id || order.id || order.orderNumber || `guest-${orderIndex}`;
+
+              return (
+                <section
+                  key={orderId}
+                  className="overflow-hidden rounded-lg border border-gray-200 bg-white"
                 >
-                  Track another order
-                </button>
-              )}
-            </div>
+                  <div className="flex flex-col gap-4 border-b border-gray-200 bg-[#f5f3ee] p-5 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="grid grid-cols-2 gap-x-8 gap-y-3 sm:flex sm:gap-10">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-widest text-gray-500">
+                          Order Date
+                        </p>
+                        <p className="mt-1 text-sm font-medium text-[#191919]">
+                          {formatDate(order.createdAt || order.localSavedAt)}
+                        </p>
+                      </div>
 
-            {orders.map((order) => (
-              <section
-                key={order._id}
-                className="overflow-hidden rounded-lg border border-gray-200 bg-white"
-              >
-                <div className="flex flex-col gap-4 border-b border-gray-200 bg-[#f5f3ee] p-5 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="grid grid-cols-2 gap-x-8 gap-y-3 sm:flex sm:gap-10">
-                    <div>
-                      <p className="text-[10px] uppercase tracking-widest text-gray-500">
-                        Order Date
-                      </p>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-widest text-gray-500">
+                          Order Total
+                        </p>
+                        <p className="mt-1 text-sm font-medium text-[#191919]">
+                          {formatPrice(order.total)}
+                        </p>
+                      </div>
 
-                      <p className="mt-1 text-sm font-medium text-[#191919]">
-                        {formatDate(order.createdAt)}
-                      </p>
+                      <div className="col-span-2 sm:col-span-1">
+                        <p className="text-[10px] uppercase tracking-widest text-gray-500">
+                          Order Number
+                        </p>
+                        <p className="mt-1 break-all text-xs text-gray-700">
+                          {order.orderNumber || orderId}
+                        </p>
+                      </div>
                     </div>
 
-                    <div>
-                      <p className="text-[10px] uppercase tracking-widest text-gray-500">
-                        Order Total
-                      </p>
-
-                      <p className="mt-1 text-sm font-medium text-[#191919]">
-                        {formatPrice(order.total)}
-                      </p>
-                    </div>
-
-                    <div className="col-span-2 sm:col-span-1">
-                      <p className="text-[10px] uppercase tracking-widest text-gray-500">
-                        Order Number
-                      </p>
-
-                      <p className="mt-1 break-all text-xs text-gray-700">
-                        {order._id}
-                      </p>
-                    </div>
+                    <span
+                      className={`inline-block w-fit rounded-full px-3 py-1.5 text-xs font-medium ${
+                        statusColors[order.orderStatus] ||
+                        "bg-gray-100 text-gray-700"
+                      }`}
+                    >
+                      {order.orderStatus || "Pending"}
+                    </span>
                   </div>
 
-                  <span
-                    className={`inline-block w-fit rounded-full px-3 py-1.5 text-xs font-medium ${
-                      statusColors[order.orderStatus] ||
-                      "bg-gray-100 text-gray-700"
-                    }`}
-                  >
-                    {order.orderStatus || "Pending"}
-                  </span>
-                </div>
+                  <div className="space-y-6 p-5">
+                    {(order.items || []).map((item, index) => {
+                      const product =
+                        item.product && typeof item.product === "object"
+                          ? item.product
+                          : null;
 
-                <div className="space-y-6 p-5">
-                  {(order.items || []).map((item, index) => {
-                    const product =
-                      item.product && typeof item.product === "object"
-                        ? item.product
-                        : null;
+                      const productId = getProductId(item);
+                      const key = getReviewKey(orderId, productId);
 
-                    const productId = getProductId(item);
-                    const key = getReviewKey(order._id, productId);
+                      const image =
+                        item.image ||
+                        item.images?.[0] ||
+                        product?.images?.[0] ||
+                        product?.image ||
+                        "";
 
-                    const image =
-                      item.image ||
-                      product?.images?.[0] ||
-                      product?.image ||
-                      "";
+                      const form = reviewForms[key] || {
+                        rating: 5,
+                        comment: "",
+                      };
 
-                    const form = reviewForms[key] || {
-                      rating: 5,
-                      comment: "",
-                    };
+                      const message = reviewMessages[key];
 
-                    const message = reviewMessages[key];
+                      return (
+                        <div
+                          key={`${productId || "item"}-${index}`}
+                          className="border-b border-gray-100 pb-6 last:border-0 last:pb-0"
+                        >
+                          <div className="flex gap-4">
+                            <div className="h-24 w-24 shrink-0 overflow-hidden bg-[#f5f3ee] sm:h-28 sm:w-28">
+                              {image ? (
+                                <img
+                                  src={image}
+                                  alt={item.title || product?.title || "Product"}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-full items-center justify-center text-xs text-gray-400">
+                                  No image
+                                </div>
+                              )}
+                            </div>
 
-                    return (
-                      <div
-                        key={`${productId || "item"}-${index}`}
-                        className="border-b border-gray-100 pb-6 last:border-0 last:pb-0"
-                      >
-                        <div className="flex gap-4">
-                          <div className="h-24 w-24 shrink-0 overflow-hidden bg-[#f5f3ee] sm:h-28 sm:w-28">
-                            {image ? (
-                              <img
-                                src={image}
-                                alt={item.title || "Product"}
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              <div className="flex h-full items-center justify-center text-xs text-gray-400">
-                                No image
-                              </div>
-                            )}
+                            <div className="flex min-w-0 flex-1 flex-col justify-center">
+                              <h3 className="text-sm font-medium text-[#191919] sm:text-base">
+                                {item.title || product?.title || "Product"}
+                              </h3>
+
+                              {item.color && (
+                                <p className="mt-1 text-xs text-gray-500">
+                                  Color: {item.color}
+                                </p>
+                              )}
+
+                              {item.size && (
+                                <p className="mt-1 text-xs text-gray-500">
+                                  Size: {item.size}
+                                </p>
+                              )}
+
+                              <p className="mt-1 text-xs text-gray-500">
+                                Quantity: {item.quantity}
+                              </p>
+
+                              <p className="mt-2 text-sm font-medium text-[#191919]">
+                                {formatPrice(item.price)}
+                              </p>
+                            </div>
                           </div>
 
-                          <div className="flex min-w-0 flex-1 flex-col justify-center">
-                            <h3 className="text-sm font-medium text-[#191919] sm:text-base">
-                              {item.title || product?.title || "Product"}
-                            </h3>
-
-                            {item.color && (
-                              <p className="mt-1 text-xs text-gray-500">
-                                Color: {item.color}
-                              </p>
-                            )}
-
-                            {item.size && (
-                              <p className="mt-1 text-xs text-gray-500">
-                                Size: {item.size}
-                              </p>
-                            )}
-
-                            <p className="mt-1 text-xs text-gray-500">
-                              Quantity: {item.quantity}
-                            </p>
-
-                            <p className="mt-2 text-sm font-medium text-[#191919]">
-                              {formatPrice(item.price)}
-                            </p>
-                          </div>
-                        </div>
-
-                        {order.orderStatus === "Delivered" &&
-                          isLoggedIn && (
+                          {order.orderStatus === "Delivered" && isLoggedIn && (
                             <div className="mt-5 rounded-lg border border-[#e7dfd1] bg-[#faf9f6] p-4 sm:p-5">
                               {submittedReviews[key] ? (
                                 <div>
                                   <p className="text-sm font-semibold text-green-700">
                                     Review submitted successfully
                                   </p>
-
                                   <p className="mt-1 text-sm text-gray-500">
                                     Shukriya! Tumhara feedback save ho gaya hai.
                                   </p>
@@ -501,7 +409,8 @@ const MyOrders = () => {
                                   </h4>
 
                                   <p className="mt-1 text-sm text-gray-500">
-                                    Is product ke bare mein apna experience share karo.
+                                    Is product ke bare mein apna experience share
+                                    karo.
                                   </p>
 
                                   <div className="mt-4">
@@ -515,11 +424,7 @@ const MyOrders = () => {
                                           key={star}
                                           type="button"
                                           onClick={() =>
-                                            updateReviewForm(
-                                              key,
-                                              "rating",
-                                              star
-                                            )
+                                            updateReviewForm(key, "rating", star)
                                           }
                                           aria-label={`${star} star rating`}
                                           className={`text-3xl transition ${
@@ -578,9 +483,7 @@ const MyOrders = () => {
                                   <button
                                     type="button"
                                     disabled={Boolean(submitting[key])}
-                                    onClick={() =>
-                                      submitReview(order, item)
-                                    }
+                                    onClick={() => submitReview(order, item)}
                                     className="mt-4 bg-[#191919] px-6 py-3 text-sm font-medium text-white transition hover:bg-[#8c7650] disabled:cursor-not-allowed disabled:opacity-50"
                                   >
                                     {submitting[key]
@@ -591,27 +494,28 @@ const MyOrders = () => {
                               )}
                             </div>
                           )}
-                      </div>
-                    );
-                  })}
-                </div>
+                        </div>
+                      );
+                    })}
+                  </div>
 
-                <div className="flex flex-col gap-2 border-t border-gray-200 px-5 py-4 text-sm sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-gray-500">
-                    Payment:{" "}
-                    <span className="font-medium text-[#191919]">
-                      {order.paymentMethod || "COD"}
-                    </span>
-                  </p>
+                  <div className="flex flex-col gap-2 border-t border-gray-200 px-5 py-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-gray-500">
+                      Payment:{" "}
+                      <span className="font-medium text-[#191919]">
+                        {order.paymentMethod || "COD"}
+                      </span>
+                    </p>
 
-                  <p className="font-semibold text-[#191919]">
-                    Total: {formatPrice(order.total)}
-                  </p>
-                </div>
-              </section>
-            ))}
+                    <p className="font-semibold text-[#191919]">
+                      Total: {formatPrice(order.total)}
+                    </p>
+                  </div>
+                </section>
+              );
+            })}
           </div>
-        ) : null}
+        )}
       </div>
     </main>
   );
