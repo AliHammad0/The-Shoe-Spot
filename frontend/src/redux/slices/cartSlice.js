@@ -2,16 +2,27 @@
 import { createSlice } from "@reduxjs/toolkit";
 
 const getProductId = (item) =>
-  String(item._id || item.productId || item.id || "");
+  String(item?._id || item?.productId || item?.id || "");
 
-const getStock = (item) =>
-  Math.max(0, Number(item.stock ?? item.quantityAvailable ?? 0));
+const sameCartItem = (item, target) => {
+  const targetId =
+    typeof target === "object" && target !== null
+      ? target.id || target.productId || target._id
+      : target;
 
-const sameCartItem = (item, target) =>
-  getProductId(item) === String(target.id ?? target) &&
-  (typeof target === "object"
-    ? item.size === target.size && item.color === target.color
-    : true);
+  if (getProductId(item) !== String(targetId || "")) {
+    return false;
+  }
+
+  if (typeof target !== "object" || target === null) {
+    return true;
+  }
+
+  return (
+    String(item.size || "") === String(target.size || "") &&
+    String(item.color || "") === String(target.color || "")
+  );
+};
 
 const cartSlice = createSlice({
   name: "cart",
@@ -25,11 +36,11 @@ const cartSlice = createSlice({
     addToCart: (state, action) => {
       const product = action.payload;
       const productId = getProductId(product);
+
       const requestedQuantity = Math.max(
         1,
         Number(product.quantity) || 1
       );
-      const stock = getStock(product);
 
       state.error = "";
 
@@ -38,37 +49,22 @@ const cartSlice = createSlice({
         return;
       }
 
-      if (stock <= 0) {
-        state.error = "Yeh product out of stock hai.";
-        return;
-      }
-
       const existingItem = state.items.find(
         (item) =>
           getProductId(item) === productId &&
-          item.size === product.size &&
-          item.color === product.color
+          String(item.size || "") === String(product.size || "") &&
+          String(item.color || "") === String(product.color || "")
       );
 
-      const currentQuantity = existingItem
-        ? Number(existingItem.quantity) || 0
-        : 0;
-
-      if (currentQuantity + requestedQuantity > stock) {
-        state.error = `Sirf ${stock} items available hain. Cart mein pehle se ${currentQuantity} hain.`;
-        return;
-      }
-
       if (existingItem) {
-        existingItem.quantity = currentQuantity + requestedQuantity;
-        existingItem.stock = stock;
+        existingItem.quantity =
+          (Number(existingItem.quantity) || 0) + requestedQuantity;
       } else {
         state.items.push({
           ...product,
           _id: productId,
           productId,
           quantity: requestedQuantity,
-          stock,
         });
       }
     },
@@ -77,6 +73,7 @@ const cartSlice = createSlice({
       state.items = state.items.filter(
         (item) => !sameCartItem(item, action.payload)
       );
+
       state.error = "";
     },
 
@@ -89,14 +86,7 @@ const cartSlice = createSlice({
 
       if (!item) return;
 
-      const stock = getStock(item);
-
-      if (item.quantity >= stock) {
-        state.error = `Sirf ${stock} items available hain.`;
-        return;
-      }
-
-      item.quantity += 1;
+      item.quantity = (Number(item.quantity) || 0) + 1;
     },
 
     decreaseQuantity: (state, action) => {

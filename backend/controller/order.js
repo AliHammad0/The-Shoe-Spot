@@ -1,17 +1,24 @@
+
 import mongoose from "mongoose";
 import Stripe from "stripe";
 import Order from "../model/order.js";
 import Product from "../model/products.js";
 import Review from "../model/review.js";
+import Reservation from "../model/reservation.js";
 import { STRIPE_SECRET_KEY } from "../config/config.js";
 
-const stripe = new Stripe(STRIPE_SECRET_KEY);
+const stripe = STRIPE_SECRET_KEY
+  ? new Stripe(STRIPE_SECRET_KEY)
+  : null;
+
+const normalizeOption = (value) => String(value || "").trim();
 
 export const createOrder = async (req, res) => {
   const session = await mongoose.startSession();
 
   try {
     const {
+      cartId,
       customerName,
       email,
       phone,
@@ -26,6 +33,8 @@ export const createOrder = async (req, res) => {
     } = req.body;
 
     if (
+      !cartId ||
+      typeof cartId !== "string" ||
       !customerName ||
       !email ||
       !phone ||
@@ -36,9 +45,11 @@ export const createOrder = async (req, res) => {
     ) {
       return res.status(400).json({
         ok: false,
-        message: "Please provide all required order details.",
+        message: "Please provide all required order details, including cart ID.",
       });
     }
+
+    const normalizedCartId = cartId.trim();
 
     const orderSubtotal = Number(subtotal);
     const orderShipping = Number(shipping);
@@ -63,8 +74,8 @@ export const createOrder = async (req, res) => {
       product: item.product || item.productId,
       title: item.title,
       image: item.image || "",
-      color: item.color || "",
-      size: item.size || "",
+      color: normalizeOption(item.color),
+      size: normalizeOption(item.size),
       quantity: Number(item.quantity),
       price: Number(item.price),
     }));
@@ -105,6 +116,13 @@ export const createOrder = async (req, res) => {
     let verifiedPaymentIntentId;
 
     if (paymentMethod === "Stripe") {
+      if (!stripe) {
+        return res.status(500).json({
+          ok: false,
+          message: "Stripe is not configured.",
+        });
+      }
+
       if (
         !paymentIntentId ||
         typeof paymentIntentId !== "string"
@@ -132,6 +150,15 @@ export const createOrder = async (req, res) => {
         return res.status(400).json({
           ok: false,
           message: "Stripe payment amount or currency does not match.",
+        });
+      }
+
+      if (
+        paymentIntent.metadata?.cartId !== normalizedCartId
+      ) {
+        return res.status(403).json({
+          ok: false,
+          message: "This payment does not belong to this cart.",
         });
       }
 
@@ -177,48 +204,74 @@ export const createOrder = async (req, res) => {
       }
     }
 
-    const productQuantities = new Map();
+    // Same product, size aur color ki quantities combine karo.
+    const reservationRequirements = new Map();
 
     for (const item of orderItems) {
-      const productId = String(item.product);
+      const key = [
+        String(item.product),
+        item.size,
+        item.color,
+      ].join("|");
 
-      productQuantities.set(
-        productId,
-        (productQuantities.get(productId) || 0) + item.quantity
-      );
+      const existing = reservationRequirements.get(key);
+
+      if (existing) {
+        existing.quantity += item.quantity;
+      } else {
+        reservationRequirements.set(key, {
+          product: item.product,
+          size: item.size,
+          color: item.color,
+          quantity: item.quantity,
+        });
+      }
     }
 
     let createdOrder;
 
     await session.withTransaction(async () => {
-      for (const [productId, quantity] of productQuantities) {
-        const updatedProduct = await Product.findOneAndUpdate(
-          {
-            _id: productId,
-            stock: { $gte: quantity },
-          },
-          {
-            $inc: { stock: -quantity },
-          },
-          {
-            new: true,
-            session,
-          }
-        );
+      const now = new Date();
 
-        if (!updatedProduct) {
-          const error = new Error("INSUFFICIENT_STOCK");
-          error.productId = productId;
+      // Har cart item ki valid reservation verify karo.
+      for (const requirement of reservationRequirements.values()) {
+        const reservation = await Reservation.findOne({
+          cartId: normalizedCartId,
+          product: requirement.product,
+          size: requirement.size,
+          color: requirement.color,
+          quantity: requirement.quantity,
+          expiresAt: { $gt: now },
+        }).session(session);
+
+        if (!reservation) {
+          const error = new Error("RESERVATION_INVALID");
+          error.productId = String(requirement.product);
+          throw error;
+        }
+
+        const product = await Product.findOne({
+          _id: requirement.product,
+          isActive: { $ne: false },
+        }).session(session);
+
+        if (!product) {
+          const error = new Error("PRODUCT_NOT_AVAILABLE");
+          error.productId = String(requirement.product);
           throw error;
         }
       }
 
+      // Order create karo. Stock dobara minus nahi hoga.
       const orders = await Order.create(
         [
           {
-            user: req.user?.userId || req.user?._id || undefined,
+            user:
+              req.user?.userId ||
+              req.user?._id ||
+              undefined,
             customerName,
-            email,
+            email: email.trim().toLowerCase(),
             phone,
             address,
             city,
@@ -230,13 +283,21 @@ export const createOrder = async (req, res) => {
             ...(verifiedPaymentIntentId
               ? { paymentIntentId: verifiedPaymentIntentId }
               : {}),
-            paymentStatus: verifiedPaymentIntentId ? "Paid" : "Pending",
+            paymentStatus: verifiedPaymentIntentId
+              ? "Paid"
+              : "Pending",
           },
         ],
         { session }
       );
 
       createdOrder = orders[0];
+
+      // Order successful hone par reservations consume karo.
+      await Reservation.deleteMany(
+        { cartId: normalizedCartId },
+        { session }
+      );
     });
 
     return res.status(201).json({
@@ -248,13 +309,13 @@ export const createOrder = async (req, res) => {
     console.error("Create order error:", error);
 
     if (
-      error.message === "INSUFFICIENT_STOCK" ||
-      error.productId
+      error.message === "RESERVATION_INVALID" ||
+      error.message === "PRODUCT_NOT_AVAILABLE"
     ) {
       return res.status(409).json({
         ok: false,
         message:
-          "Product ka stock available nahi hai. Products refresh karke dobara try karein.",
+          "Cart ki stock reservation missing ya expire ho chuki hai. Cart refresh karke dobara try karein.",
       });
     }
 
@@ -357,6 +418,8 @@ export const getAllOrders = async (req, res) => {
 };
 
 export const updateOrderStatus = async (req, res) => {
+  const session = await mongoose.startSession();
+
   try {
     const { status } = req.body;
 
@@ -383,31 +446,69 @@ export const updateOrderStatus = async (req, res) => {
       });
     }
 
-    const order = await Order.findByIdAndUpdate(
-      req.params.id,
-      { orderStatus: status },
-      { new: true, runValidators: true }
-    );
+    let updatedOrder;
 
-    if (!order) {
+    await session.withTransaction(async () => {
+      const order = await Order.findById(req.params.id).session(session);
+
+      if (!order) {
+        const error = new Error("ORDER_NOT_FOUND");
+        throw error;
+      }
+
+      if (order.orderStatus === "Cancelled" && status !== "Cancelled") {
+        const error = new Error("ORDER_ALREADY_CANCELLED");
+        throw error;
+      }
+
+      // Cancel hone par stock sirf ek baar restore hoga.
+      if (
+        status === "Cancelled" &&
+        order.orderStatus !== "Cancelled"
+      ) {
+        for (const item of order.items) {
+          await Product.updateOne(
+            { _id: item.product },
+            { $inc: { stock: item.quantity } },
+            { session }
+          );
+        }
+      }
+
+      order.orderStatus = status;
+      await order.save({ session });
+
+      updatedOrder = order;
+    });
+
+    return res.status(200).json({
+      ok: true,
+      message: "Order status updated successfully.",
+      order: updatedOrder,
+    });
+  } catch (error) {
+    console.error("Update order status error:", error);
+
+    if (error.message === "ORDER_NOT_FOUND") {
       return res.status(404).json({
         ok: false,
         message: "Order not found.",
       });
     }
 
-    return res.status(200).json({
-      ok: true,
-      message: "Order status updated successfully.",
-      order,
-    });
-  } catch (error) {
-    console.error("Update order status error:", error);
+    if (error.message === "ORDER_ALREADY_CANCELLED") {
+      return res.status(409).json({
+        ok: false,
+        message: "A cancelled order cannot be reactivated.",
+      });
+    }
 
     return res.status(500).json({
       ok: false,
       message: "Failed to update order status.",
     });
+  } finally {
+    await session.endSession();
   }
 };
 

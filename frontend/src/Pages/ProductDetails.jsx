@@ -19,6 +19,7 @@ import {
 } from "../redux/slices/cartSlice";
 import { toggleWishlist } from "../redux/slices/wishlistSlice.js";
 import { store } from "../redux/store.js";
+import getCartId from "../utils/cartId";
 const API_BASE_URL =
   "https://the-shoe-spot-backend.vercel.app/api/v1";
 const API_URL = `${API_BASE_URL}/products`;
@@ -424,21 +425,24 @@ export default function ProductDetails() {
     setActiveImage("");
   }, [selectedColor]);
 
+  // Sirf selected size aur color ki existing cart quantity.
   const existingQuantity = cartItems
     .filter(
       (item) =>
         String(item._id || item.productId || item.id) ===
-        String(product?.id)
+          String(product?.id) &&
+        String(item.size || item.selectedSize || "") ===
+          String(selectedSize || "") &&
+        String(item.color || item.selectedColor || "") ===
+          String(selectedColor || "")
     )
     .reduce(
       (total, item) => total + Number(item.quantity || 0),
       0
     );
 
-  const remainingStock = Math.max(
-    0,
-    (product?.stock || 0) - existingQuantity
-  );
+  // Product.stock mein globally available stock hota hai.
+  const remainingStock = Math.max(0, Number(product?.stock || 0));
 
   const outOfStock = remainingStock <= 0;
 
@@ -471,7 +475,7 @@ export default function ProductDetails() {
 
   const installment = Math.ceil(product.price / 3);
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     setCartMessage("");
     dispatch(clearCartError());
 
@@ -497,45 +501,114 @@ export default function ProductDetails() {
       return false;
     }
 
-    dispatch(
-      addCartItem({
-        id: product.id,
-        productId: product.id,
-        title: product.title,
-        name: product.title,
-        price: product.price,
-        image: displayImage,
-        size: selectedSize,
-        color: selectedColor,
-        quantity,
-        stock: product.stock,
-      })
-    );
+    const cartId = getCartId();
+    const reservedQuantity = existingQuantity + quantity;
+    const reservationOptions = {
+      cartId,
+      productId: product.id,
+      quantity: reservedQuantity,
+      size: String(selectedSize),
+      color: String(selectedColor || ""),
+    };
 
-    const updatedCart = store.getState().cart;
+    try {
+      // Redux cart update se pehle MongoDB mein stock reserve hoga.
+      const reservationResponse = await fetch(
+        `${API_BASE_URL}/reservations/reserve`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(reservationOptions),
+        }
+      );
 
-    if (updatedCart.error) {
-      setCartMessage(updatedCart.error);
+      const reservationData = await reservationResponse
+        .json()
+        .catch(() => ({}));
+
+      if (!reservationResponse.ok || reservationData.ok === false) {
+        throw new Error(
+          reservationData.message ||
+            "Stock reserve nahi ho saka. Dobara try karein."
+        );
+      }
+
+      dispatch(
+        addCartItem({
+          id: product.id,
+          productId: product.id,
+          title: product.title,
+          name: product.title,
+          price: product.price,
+          image: displayImage,
+          size: selectedSize,
+          color: selectedColor,
+          quantity,
+          // Stock mein apni pehle wali reservation bhi include hai.
+          stock: remainingStock + existingQuantity,
+        })
+      );
+
+      const updatedCart = store.getState().cart;
+
+      const itemExists = updatedCart.items.some(
+        (item) =>
+          String(item._id || item.productId || item.id) ===
+            String(product.id) &&
+          String(item.size || item.selectedSize || "") ===
+            String(selectedSize) &&
+          String(item.color || item.selectedColor || "") ===
+            String(selectedColor || "")
+      );
+
+      if (updatedCart.error || !itemExists) {
+        // Redux update fail ho to MongoDB reservation purani quantity par wapas.
+        if (existingQuantity > 0) {
+          await fetch(`${API_BASE_URL}/reservations/reserve`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...reservationOptions,
+              quantity: existingQuantity,
+            }),
+          });
+        } else {
+          await fetch(`${API_BASE_URL}/reservations/release`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              cartId,
+              productId: product.id,
+              size: String(selectedSize),
+              color: String(selectedColor || ""),
+            }),
+          });
+        }
+
+        throw new Error(
+          updatedCart.error || "Product cart mein add nahi hua."
+        );
+      }
+
+      if (Number.isFinite(Number(reservationData.stock))) {
+        setProduct((previous) =>
+          previous
+            ? { ...previous, stock: Number(reservationData.stock) }
+            : previous
+        );
+      }
+
+      setCartMessage("Product added to your bag.");
+      return true;
+    } catch (err) {
+      setCartMessage(err.message || "Stock reserve nahi ho saka.");
       return false;
     }
-
-    const itemExists = updatedCart.items.some(
-      (item) =>
-        String(item._id || item.productId || item.id) ===
-        String(product.id)
-    );
-
-    if (!itemExists) {
-      setCartMessage("Product cart mein add nahi hua.");
-      return false;
-    }
-
-    setCartMessage("Product added to your bag.");
-    return true;
   };
 
-  const buyNow = () => {
-    if (handleAddToCart()) navigate("/checkout");
+  const buyNow = async () => {
+    const added = await handleAddToCart();
+    if (added) navigate("/checkout");
   };
 
   const visibleCartMessage = reduxCartError || cartMessage;
